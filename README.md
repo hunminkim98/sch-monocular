@@ -12,13 +12,6 @@
 
 State-of-the-art methods can recover accurate overall 3D human body motion from in-the-wild videos. However, they often fail to capture fine-grained articulations, especially in the feet, which are critical for applications such as gait analysis and animation. This limitation results from training datasets with inaccurate foot annotations and limited foot motion diversity. We address this gap with FootMR, a Foot Motion Refinement method that refines foot motion estimated by an existing human recovery model through lifting 2D foot keypoint sequences to 3D. By avoiding direct image input, FootMR circumvents inaccurate image–3D annotation pairs and can instead leverage large-scale motion capture data. To resolve ambiguities of 2D-to-3D lifting, FootMR incorporates knee and foot motion as context and predicts only residual foot motion. Generalization to extreme foot poses is further improved by representing joints in global rather than parent-relative rotations and applying extensive data augmentation. To support evaluation of foot motion reconstruction, we introduce MOOF, a 2D dataset of complex foot movements. Experiments on MOOF, MOYO, and RICH show that FootMR outperforms state-of-the-art methods, reducing ankle joint angle error on MOYO by up to 30% over the best video-based approach.
 
-## TODOs
-
-- [x] Project page
-- [x] arXiv paper
-- [X] Code release
-- [ ] MOOF dataset release (coming soon)
-
 ## Setup
 
 Please see [installation](docs/INSTALL.md) for details.
@@ -60,6 +53,9 @@ To train the model from scratch, run:
 ```bash
 python tools/train.py exp=footmr/mixed/mixed exp_name_var={EXP_NAME}
 ```
+
+## MOOF Dataset
+Please follow the instructions on this [website](https://www.tnt.uni-hannover.de/en/project/HumanMotionDatabases/) to get access to the MOOF dataset.
 
 
 ## Citation
