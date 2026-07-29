@@ -15,14 +15,15 @@ resource.setrlimit(resource.RLIMIT_NOFILE, (4096, rlimit[1]))
 
 
 def collate_fn(batch):
-    """Handle meta and Add batch size to the return dict
-    Args:
-        batch: list of dict, each dict is a data point
+    """meta 정보를 처리하고 반환 dictionary에 batch size를 추가합니다.
+
+    인자:
+        batch: 각 data point dictionary로 구성된 list
     """
-    # Assume all keys in the batch are the same
+    # batch 안의 모든 항목이 같은 key를 가진다고 가정합니다.
     return_dict = {}
     for k in batch[0].keys():
-        if k.startswith("meta"):  # data information, do not batch
+        if k.startswith("meta"):  # data 정보는 batch로 묶지 않습니다.
             return_dict[k] = [d[k] for d in batch]
         else:
             return_dict[k] = default_collate([d[k] for d in batch])
@@ -33,20 +34,24 @@ def collate_fn(batch):
 class DataModule(pl.LightningDataModule):
     def __init__(self, dataset_opts: DictConfig, loader_opts: DictConfig,
                  limit_each_trainset=None):
-        """This is a general datamodule that can be used for any dataset.
-        Train uses ConcatDataset
-        Val and Test use CombinedLoader, sequential, completely consumes ecah iterable sequentially, and returns a triplet (data, idx, iterable_idx)
+        """여러 dataset에 사용할 수 있는 범용 data module입니다.
 
-        Args:
-            dataset_opts: the target of the dataset. e.g. dataset_opts.train = {_target_: ..., limit_size: None}
-            loader_opts: the options for the dataset
-            limit_each_trainset: limit the size of each dataset, None means no limit, useful for debugging
+        학습에는 ``ConcatDataset``을 사용합니다. Validation과 test에는
+        sequential 방식의 ``CombinedLoader``를 사용하며, 각 iterable을 순서대로
+        모두 소비하고 ``(data, idx, iterable_idx)``를 반환합니다.
+
+        인자:
+            dataset_opts: dataset target 설정.
+                예: ``dataset_opts.train = {_target_: ..., limit_size: None}``
+            loader_opts: dataset loader 옵션
+            limit_each_trainset: 각 dataset의 최대 크기. ``None``이면 제한하지
+                않으며 디버깅할 때 유용합니다.
         """
         super().__init__()
         self.loader_opts = loader_opts
         self.limit_each_trainset = limit_each_trainset
 
-        # Train uses concat dataset
+        # 학습 dataset은 하나의 ConcatDataset으로 합칩니다.
         if "train" in dataset_opts:
             assert "train" in self.loader_opts, "train not in loader_opts"
             split_opts = dataset_opts.get("train")
@@ -64,7 +69,7 @@ class DataModule(pl.LightningDataModule):
             Log.info(f"[Train Dataset][All]: ConcatDataset size={len(dataset)}")
             Log.info(f"")
 
-        # Val and Test use sequential dataset
+        # Validation과 test dataset은 순서대로 읽습니다.
         for split in ("val", "test"):
             if split not in dataset_opts:
                 continue

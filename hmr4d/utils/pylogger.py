@@ -13,11 +13,11 @@ Log = logging.getLogger()
 Log.time = time
 Log.sync_time = sync_time
 
-# Set default
+# 기본값을 설정한다.
 Log.setLevel(logging.INFO)
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
-# Use colorlog
+# colorlog를 사용한다.
 formatstring = "[%(cyan)s%(asctime)s%(reset)s][%(log_color)s%(levelname)s%(reset)s] %(message)s"
 datefmt = "%m/%d %H:%M:%S"
 ch.setFormatter(ColoredFormatter(formatstring, datefmt=datefmt))
@@ -29,9 +29,9 @@ Log.addHandler(ch)
 def timer(sync_cuda=False, mem=False, loop=1):
     """
     Args:
-        func: function
-        sync_cuda: bool, whether to synchronize cuda
-        mem: bool, whether to log memory
+        func: 함수
+        sync_cuda: CUDA를 동기화할지 여부
+        mem: memory 사용량을 기록할지 여부
     """
 
     def decorator(func):
@@ -66,7 +66,7 @@ def timer(sync_cuda=False, mem=False, loop=1):
 
 
 def timed(fn):
-    """example usage: timed(lambda: model(inp))"""
+    """사용 예: timed(lambda: model(inp))"""
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
     start.record()

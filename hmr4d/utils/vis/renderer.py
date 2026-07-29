@@ -104,7 +104,7 @@ def compute_bbox_from_points(X, img_w, img_h, scaleFactor=1.2):
 
 class Renderer:
     def __init__(self, width, height, focal_length=None, device="cuda", faces=None, K=None, bin_size=None):
-        """set bin_size to 0 for no binning"""
+        """binning을 사용하지 않으려면 bin_size를 0으로 설정한다."""
         self.width = width
         self.height = height
         self.bin_size = bin_size
@@ -144,12 +144,12 @@ class Renderer:
         )
 
     def initialize_camera_params(self, focal_length, K):
-        # Extrinsics
+        # 외부 파라미터
         self.R = torch.diag(torch.tensor([1, 1, 1])).float().to(self.device).unsqueeze(0)
 
         self.T = torch.tensor([0, 0, 0]).unsqueeze(0).float().to(self.device)
 
-        # Intrinsics
+        # 내부 파라미터
         if K is not None:
             self.K = K.float().reshape(1, 3, 3).to(self.device)
         else:
@@ -175,9 +175,9 @@ class Renderer:
         self.ground_geometry = [v, f, vc]
 
     def update_bbox(self, x3d, scale=2.0, mask=None):
-        """Update bbox of cameras from the given 3d points
+        """주어진 3D point로 camera bounding box를 갱신한다.
 
-        x3d: input 3D keypoints (or vertices), (num_frames, num_points, 3)
+        x3d: 입력 3D keypoint 또는 vertex, (num_frames, num_points, 3)
         """
 
         if x3d.size(-1) != 3:
@@ -208,13 +208,13 @@ class Renderer:
         self.create_renderer()
 
     def render_mesh(self, vertices, background=None, colors=[0.8, 0.8, 0.8], VI=50, opaque_f=1.0):
-        # I think this is used to speed up rendering, by changing the camera such that only
-        # tight crop is rendered. But I think it neglect perspective effects?
+        # tight crop만 render하도록 camera를 바꿔 속도를 높이는 것으로 보인다.
+        # 다만 perspective effect는 반영하지 못할 수 있다.
         self.update_bbox(vertices[::VI], scale=1.2)
         vertices = vertices.unsqueeze(0)
 
         if isinstance(colors, torch.Tensor):
-            # per-vertex color
+            # vertex별 색상
             verts_features = colors.to(device=vertices.device, dtype=vertices.dtype)
             colors = [0.8, 0.8, 0.8]
         else:
@@ -245,11 +245,11 @@ class Renderer:
 
     def render_with_ground(self, verts, colors, cameras, lights, faces=None):
         """
-        :param verts (N, V, 3), potential multiple people
+        :param verts (N, V, 3), 여러 사람을 포함할 수 있다.
         :param colors (N, 3) or (N, V, 3)
-        :param faces (N, F, 3), optional, otherwise self.faces is used will be used
+        :param faces (N, F, 3), 선택값이며 미지정 시 self.faces를 사용한다.
         """
-        # Sanity check of input verts, colors and faces: (B, V, 3), (B, F, 3), (B, V, 3)
+        # 입력 verts, colors, faces의 shape을 확인한다: (B, V, 3), (B, F, 3), (B, V, 3)
         N, V, _ = verts.shape
         if faces is None:
             faces = self.faces.clone().expand(N, -1, -1)
@@ -289,7 +289,7 @@ def create_meshes(verts, faces, colors):
 
 
 def get_global_cameras(verts, device="cuda", distance=5, position=(-5.0, 5.0, 0.0)):
-    """This always put object at the center of view"""
+    """객체가 항상 화면 중앙에 오도록 camera를 구한다."""
     positions = torch.tensor([position]).repeat(len(verts), 1)
     targets = verts.mean(1)
 
@@ -309,13 +309,13 @@ def get_global_cameras_static(
 ):
     L, V, _ = verts.shape
 
-    # Compute target trajectory, denote as center + scale
+    # 중심과 scale로 표현되는 target trajectory를 계산한다.
     targets = verts.mean(1)  # (L, 3)
-    targets[:, 1] = 0  # project to xz-plane
+    targets[:, 1] = 0  # xz 평면에 투영한다.
     target_center = targets.mean(0)  # (3,)
     target_scale, target_idx = torch.norm(targets - target_center, dim=-1).max(0)
 
-    # a 45 degree vec from longest axis
+    # 가장 긴 축에서 45도 회전한 vector
     if use_long_axis:
         long_vec = targets[target_idx] - target_center  # (x, 0, z)
         long_vec = long_vec / torch.norm(long_vec)
@@ -326,12 +326,12 @@ def get_global_cameras_static(
         vec = torch.tensor([np.sin(vec_rad), 0, np.cos(vec_rad)]).float()
         vec = vec / torch.norm(vec)
 
-    # Compute camera position (center + scale * vec * beta) + y=4
+    # camera 위치를 center, scale, 방향 vector, 높이로 계산한다.
     target_scale = max(target_scale, 1.0) * beta
     position = target_center + vec * target_scale
     position[1] = target_scale * np.tan(np.pi * cam_height_degree / 180) + target_center_height
 
-    # Compute camera rotation and translation
+    # camera rotation과 translation을 계산한다.
     positions = position.unsqueeze(0).repeat(L, 1)
     target_centers = target_center.unsqueeze(0).repeat(L, 1)
     target_centers[:, 1] = target_center_height
@@ -343,10 +343,10 @@ def get_global_cameras_static(
 
 
 def get_ground_params_from_points(root_points, vert_points):
-    """xz-plane is the ground plane
+    """xz 평면을 지면으로 사용한다.
     Args:
-        root_points: (L, 3), to decide center
-        vert_points: (L, V, 3), to decide scale
+        root_points: (L, 3), 중심을 정하는 데 사용한다.
+        vert_points: (L, V, 3), scale을 정하는 데 사용한다.
     """
     root_max = root_points.max(0)[0]  # (3,)
     root_min = root_points.min(0)[0]  # (3,)

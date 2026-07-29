@@ -6,22 +6,22 @@ from hmr4d.utils.net_utils import gaussian_smooth
 
 def get_R_c2gv(R_w2c, axis_gravity_in_w=[0, 0, -1]):
     """
-    Args:
+    인자:
         R_w2c: (*, 3, 3)
-    Returns:
+    반환:
         R_c2gv: (*, 3, 3)
     """
     if isinstance(axis_gravity_in_w, list):
-        axis_gravity_in_w = torch.tensor(axis_gravity_in_w).float()  # gravity direction in world coord
+        axis_gravity_in_w = torch.tensor(axis_gravity_in_w).float()  # world 좌표계의 gravity 방향
     axis_z_in_c = torch.tensor([0, 0, 1]).float()
 
-    # get gv-coord axes in in c-coord
+    # camera 좌표계에서 GV 좌표계의 축을 구합니다.
     axis_y_of_gv = R_w2c @ axis_gravity_in_w  # (*, 3)
     axis_x_of_gv = axis_y_of_gv.cross(axis_z_in_c.expand_as(axis_y_of_gv), dim=-1)
-    # normalize
+    # 정규화
     axis_x_of_gv_norm = axis_x_of_gv.norm(dim=-1, keepdim=True)
     axis_x_of_gv = axis_x_of_gv / (axis_x_of_gv_norm + 1e-5)
-    axis_x_of_gv[axis_x_of_gv_norm.squeeze(-1) < 1e-5] = torch.tensor([1.0, 0.0, 0.0])  # use cam x-axis as axis_x_of_gv
+    axis_x_of_gv[axis_x_of_gv_norm.squeeze(-1) < 1e-5] = torch.tensor([1.0, 0.0, 0.0])  # camera x축을 GV x축으로 사용합니다.
     axis_z_of_gv = axis_x_of_gv.cross(axis_y_of_gv, dim=-1)
 
     R_gv2c = torch.stack([axis_x_of_gv, axis_y_of_gv, axis_z_of_gv], dim=-1)  # (*, 3, 3)
@@ -38,37 +38,38 @@ tsf_axisangle = {
 
 
 def get_tgtcoord_rootparam(global_orient, transl, gravity_vec=None, tgt_gravity_vec=None, tsf="ay->ay"):
-    """Rotate around the origin center, to match the new gravity direction
-    Args:
+    """새로운 gravity 방향에 맞도록 원점을 중심으로 회전합니다.
+
+    인자:
         global_orient: torch.tensor, (*, 3)
         transl: torch.tensor, (*, 3)
         gravity_vec: torch.tensor, (3,)
         tgt_gravity_vec: torch.tensor, (3,)
-    Returns:
+    반환:
         tgt_global_orient: torch.tensor, (*, 3)
         tgt_transl: torch.tensor, (*, 3)
         R_g2tg: (3, 3)
     """
-    # get rotation matrix
+    # rotation matrix를 구합니다.
     device = global_orient.device
     if gravity_vec is None and tgt_gravity_vec is None:
         aa = torch.tensor(tsf_axisangle[tsf]).to(device)
         R_g2tg = axis_angle_to_matrix(aa)  # (3, 3)
     else:
         raise NotImplementedError
-        # TODO: Impl this function
+        # TODO: 이 분기를 구현해야 합니다.
         gravity_vec = torch.tensor(gravity_vec).float().to(device)
         gravity_vec = gravity_vec / gravity_vec.norm()
         tgt_gravity_vec = torch.tensor(tgt_gravity_vec).float().to(device)
         tgt_gravity_vec = tgt_gravity_vec / tgt_gravity_vec.norm()
-        # pick one identity axis
+        # 동일하게 유지할 축 하나를 선택합니다.
         axis_identity = torch.tensor([0, 0, 0]).float().to(device)
         for i in (gravity_vec == 0) & (tgt_global_orient == 0):
             if i:
                 axis_identity[i] = 1
                 break
 
-    # rotate
+    # 좌표계를 회전합니다.
     global_orient_R = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     tgt_global_orient = matrix_to_axis_angle(R_g2tg @ global_orient_R)  # (*, 3, 3)
     tgt_transl = torch.einsum("...ij,...j->...i", R_g2tg, transl)
@@ -78,12 +79,12 @@ def get_tgtcoord_rootparam(global_orient, transl, gravity_vec=None, tgt_gravity_
 
 def get_c_rootparam(global_orient, transl, T_w2c, offset):
     """
-    Args:
+    인자:
         global_orient: torch.tensor, (F, 3)
         transl: torch.tensor, (F, 3)
         T_w2c: torch.tensor, (*, 4, 4)
         offset: torch.tensor, (3,)
-    Returns:
+    반환:
         R_c: torch.tensor, (F, 3)
         t_c: torch.tensor, (F, 3)
     """
@@ -104,13 +105,13 @@ def get_c_rootparam(global_orient, transl, T_w2c, offset):
 
 def get_T_w2c_from_wcparams(global_orient_w, transl_w, global_orient_c, transl_c, offset):
     """
-    Args:
+    인자:
         global_orient_w: torch.tensor, (F, 3)
         transl_w: torch.tensor, (F, 3)
         global_orient_c: torch.tensor, (F, 3)
         transl_c: torch.tensor, (F, 3)
         offset: torch.tensor, (*, 3)
-    Returns:
+    반환:
         T_w2c: torch.tensor, (F, 4, 4)
     """
     assert global_orient_w.shape == transl_w.shape and len(global_orient_w.shape) == 2
@@ -131,11 +132,12 @@ def get_T_w2c_from_wcparams(global_orient_w, transl_w, global_orient_c, transl_c
 
 def get_local_transl_vel(transl, global_orient):
     """
-    transl velocity is in local coordinate (or, SMPL-coord)
-    Args:
+    translation velocity는 local 좌표계, 즉 SMPL 좌표계로 표현됩니다.
+
+    인자:
         transl: (*, L, 3)
         global_orient: (*, L, 3)
-    Returns:
+    반환:
         transl_vel: (*, L, 3)
     """
     assert len(transl.shape) == len(global_orient.shape)
@@ -143,36 +145,37 @@ def get_local_transl_vel(transl, global_orient):
     transl_vel = transl[..., 1:, :] - transl[..., :-1, :]  # (B, L-1, 3)
     transl_vel = torch.cat([transl_vel, transl_vel[..., [-1], :]], dim=-2)  # (B, L, 3)  last-padding
 
-    # v_local = R^T @ v_global
+    # local velocity는 v_local = R^T @ v_global로 구합니다.
     local_transl_vel = torch.einsum("...lij,...li->...lj", global_orient_R, transl_vel)
     return local_transl_vel
 
 
 def rollout_local_transl_vel(local_transl_vel, global_orient, transl_0=None):
     """
-    transl velocity is in local coordinate (or, SMPL-coord)
-    Args:
+    translation velocity는 local 좌표계, 즉 SMPL 좌표계로 표현됩니다.
+
+    인자:
         local_transl_vel: (*, L, 3)
         global_orient: (*, L, 3)
-        transl_0: (*, 1, 3), if not provided, the start point is 0
-    Returns:
+        transl_0: (*, 1, 3), 미지정 시 시작점은 0입니다.
+    반환:
         transl: (*, L, 3)
     """
     global_orient_R = axis_angle_to_matrix(global_orient)
     transl_vel = torch.einsum("...lij,...lj->...li", global_orient_R, local_transl_vel)
 
-    # set start point
+    # 시작점을 설정합니다.
     if transl_0 is None:
         transl_0 = transl_vel[..., :1, :].clone().detach().zero_()
     transl_ = torch.cat([transl_0, transl_vel[..., :-1, :]], dim=-2)
 
-    # rollout from start point
+    # 시작점부터 rollout합니다.
     transl = torch.cumsum(transl_, dim=-2)
     return transl
 
 
 def get_local_transl_vel_alignhead(transl, global_orient):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -187,7 +190,7 @@ def get_local_transl_vel_alignhead(transl, global_orient):
 
 
 def rollout_local_transl_vel_alignhead(local_transl_vel_alignhead, global_orient, transl_0=None):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -202,7 +205,7 @@ def rollout_local_transl_vel_alignhead(local_transl_vel_alignhead, global_orient
 
 
 def get_local_transl_vel_alignhead_absy(transl, global_orient):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -222,7 +225,7 @@ def get_local_transl_vel_alignhead_absy(transl, global_orient):
 
 
 def rollout_local_transl_vel_alignhead_absy(local_transl_vel_alignhead_absy, global_orient, transl_0=None):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -252,7 +255,7 @@ def rollout_local_transl_vel_alignhead_absy(local_transl_vel_alignhead_absy, glo
 
 
 def get_local_transl_vel_alignhead_absgy(transl, global_orient):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -272,7 +275,7 @@ def get_local_transl_vel_alignhead_absgy(transl, global_orient):
 
 
 def rollout_local_transl_vel_alignhead_absgy(local_transl_vel_alignhead_absgy, global_orient, transl_0=None):
-    # assume global_orient is ay
+    # global_orient가 ay 좌표계라고 가정합니다.
     global_orient_rot = axis_angle_to_matrix(global_orient)  # (*, 3, 3)
     global_orient_quat = matrix_to_quaternion(global_orient_rot)  # (*, 4)
 
@@ -311,19 +314,19 @@ def rollout_local_transl_vel_alignhead_absgy(local_transl_vel_alignhead_absgy, g
 
 def rollout_vel(vel, transl_0=None):
     """
-    Args:
+    인자:
         vel: (*, L, 3)
-        transl_0: (*, 1, 3), if not provided, the start point is 0
-    Returns:
+        transl_0: (*, 1, 3), 미지정 시 시작점은 0입니다.
+    반환:
         transl: (*, L, 3)
     """
-    # set start point
+    # 시작점을 설정합니다.
     if transl_0 is None:
         assert len(vel.shape) == len(transl_0.shape)
         transl_0 = vel[..., :1, :].clone().detach().zero_()
     transl_ = torch.cat([transl_0, vel[..., :-1, :]], dim=-2)
 
-    # rollout from start point
+    # 시작점부터 rollout합니다.
     transl = torch.cumsum(transl_, dim=-2)
     return transl
 
@@ -331,16 +334,16 @@ def rollout_vel(vel, transl_0=None):
 def get_static_joint_mask(w_j3d, vel_thr=0.25, smooth=False, repeat_last=False):
     """
     w_j3d: (*, L, J, 3)
-    vel_thr: HuMoR uses 0.15m/s
+    vel_thr: HuMoR는 0.15m/s를 사용합니다.
     """
-    # expects motion to be in 30fps, so either multiply by 30 or divide by 0.0333333
+    # motion이 30fps라고 가정하므로 30을 곱하거나 0.0333333으로 나눕니다.
     joint_v_ = (w_j3d[..., 1:, :, :] - w_j3d[..., :-1, :, :]).pow(2).sum(-1).sqrt() / 0.033  # (*, L-1, J)
     if smooth:
         joint_v_ = gaussian_smooth(joint_v_, 3, -2)
 
-    static_joint_mask = joint_v_ < vel_thr  # 1 as stable, 0 as moving
+    static_joint_mask = joint_v_ < vel_thr  # 1은 static, 0은 moving을 뜻합니다.
 
-    if repeat_last:  # repeat the last frame, this makes the shape same as w_j3d
+    if repeat_last:  # 마지막 frame을 반복해 w_j3d와 shape를 맞춥니다.
         static_joint_mask = torch.cat([static_joint_mask, static_joint_mask[..., [-1], :]], dim=-2)
 
     return static_joint_mask

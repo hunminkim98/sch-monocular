@@ -9,7 +9,7 @@ class ImgfeatMotionDatasetBase(data.Dataset):
     def __init__(self):
         super().__init__()
         self._load_dataset()
-        self._get_idx2meta()  # -> Set self.idx2meta
+        self._get_idx2meta()  # self.idx2meta를 설정합니다.
 
     def __len__(self):
         return len(self.idx2meta)

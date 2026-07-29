@@ -36,11 +36,11 @@ from hmr4d.utils.vis.renderer import (
     get_ground_params_from_points,
 )
 
-CRF = 23  # 17 is lossless, every +6 halves the mp4 size
+CRF = 23  # 17은 무손실이며, 6이 증가할 때마다 mp4 크기가 절반으로 줄어듭니다.
 
 
 def parse_args_to_cfg():
-    # Put all args to cfg
+    # 모든 인자를 cfg에 반영합니다.
     parser = argparse.ArgumentParser()
     parser.add_argument("--video", type=str)
     parser.add_argument("--output_root", type=str, default=None, help="by default to outputs/demo")
@@ -70,13 +70,13 @@ def parse_args_to_cfg():
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
     args = parser.parse_args()
 
-    # Input
+    # 입력
     video_path = Path(args.video)
     assert video_path.exists(), f"Video not found at {video_path}"
     length, width, height = get_video_lwh(video_path)
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
-    # Cfg
+    # 설정
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
             f"video_name={video_path.stem}",
@@ -89,18 +89,18 @@ def parse_args_to_cfg():
         if args.f_mm is not None:
             overrides.append(f"f_mm={args.f_mm}")
 
-        # Allow to change output root
+        # 출력 루트 변경을 허용합니다.
         if args.output_root is not None:
             overrides.append(f"output_root={args.output_root}")
         register_store_footmr()
         cfg = compose(config_name="demo", overrides=overrides)
 
-    # Output
+    # 출력
     Log.info(f"[Output Dir]: {cfg.output_dir}")
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # Copy raw-input-video to video_path
+    # 원본 입력 영상을 video_path로 복사합니다.
     Log.info(f"[Copy Video] {video_path} -> {cfg.video_path}")
     if (
         not Path(cfg.video_path).exists()
@@ -125,13 +125,13 @@ def run_preprocess(cfg):
     static_cam = cfg.static_cam
     verbose = cfg.verbose
 
-    # Get bbx tracking result
+    # bounding box tracking 결과를 구합니다.
     if not Path(paths.bbx).exists():
         tracker = Tracker()
         bbx_xyxy = tracker.get_one_track(video_path).float()  # (L, 4)
         bbx_xys = get_bbx_xys_from_xyxy(
             bbx_xyxy, base_enlarge=1.2
-        ).float()  # (L, 3) apply aspect ratio and enlarge
+        ).float()  # (L, 3) aspect ratio를 적용하고 확대합니다.
         torch.save({"bbx_xyxy": bbx_xyxy, "bbx_xys": bbx_xys}, paths.bbx)
         del tracker
     else:
@@ -144,7 +144,7 @@ def run_preprocess(cfg):
         video_overlay = draw_bbx_xyxy_on_image_batch(bbx_xyxy, video)
         save_video(video_overlay, cfg.paths.bbx_xyxy_video_overlay)
 
-    # Get VitPose
+    # VitPose 결과를 구합니다.
     number_joints = 23
     if not Path(paths.vitpose).exists():
         if cfg.use_sapiens:
@@ -167,7 +167,7 @@ def run_preprocess(cfg):
         video_overlay = draw_coco_skeleton_batch(video, vitpose, number_joints, conf_thr=0.5)
         save_video(video_overlay, paths.vitpose_video_overlay)
 
-    # Get vit features
+    # ViT feature를 구합니다.
     if not Path(paths.vit_features).exists():
         extractor = Extractor()
         vit_features = extractor.extract_video_features(video_path, bbx_xys)
@@ -176,8 +176,8 @@ def run_preprocess(cfg):
     else:
         Log.info(f"[Preprocess] vit_features from {paths.vit_features}")
 
-    # Get visual odometry results
-    if not static_cam:  # use slam to get cam rotation
+    # visual odometry 결과를 구합니다.
+    if not static_cam:  # SLAM을 사용해 camera rotation을 구합니다.
         if not Path(paths.slam).exists():
             if not cfg.use_dpvo:
                 simple_vo = SimpleVO(
@@ -185,7 +185,7 @@ def run_preprocess(cfg):
                 )
                 vo_results = simple_vo.compute()  # (L, 4, 4), numpy
                 torch.save(vo_results, paths.slam)
-            else:  # DPVO
+            else:  # DPVO 사용
                 from hmr4d.utils.preproc.slam import SLAMModel
 
                 length, width, height = get_video_lwh(cfg.video_path)
@@ -214,10 +214,10 @@ def load_data_dict(cfg):
         R_w2c = torch.eye(3).repeat(length, 1, 1)
     else:
         traj = torch.load(cfg.paths.slam)
-        if cfg.use_dpvo:  # DPVO
+        if cfg.use_dpvo:  # DPVO 사용
             traj_quat = torch.from_numpy(traj[:, [6, 3, 4, 5]])
             R_w2c = quaternion_to_matrix(traj_quat).mT
-        else:  # SimpleVO
+        else:  # SimpleVO 사용
             R_w2c = torch.from_numpy(traj[:, :3, :3])
     if cfg.f_mm is not None:
         K_fullimg = create_camera_sensor(width, height, cfg.f_mm)[2].repeat(length, 1, 1)
@@ -248,20 +248,20 @@ def render_incam(cfg):
     smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
     faces_smpl = make_smplx("smpl").faces
 
-    # smpl
+    # SMPL 변환
     smplx_out = smplx(**to_cuda(pred["smpl_params_incam"]))
     pred_c_verts = torch.stack([torch.matmul(smplx2smpl, v_) for v_ in smplx_out.vertices])
 
-    # -- rendering code -- #
+    # -- rendering 코드 -- #
     video_path = cfg.video_path
     length, width, height = get_video_lwh(video_path)
     K = pred["K_fullimg"][0]
 
-    # renderer
+    # renderer 준비
     renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
     reader = get_video_reader(video_path)  # (F, H, W, 3), uint8, numpy
 
-    # -- render mesh -- #
+    # -- mesh rendering 실행 -- #
     verts_incam = pred_c_verts
     writer = get_writer(incam_video_path, fps=30, crf=CRF)
     for i, img_raw in tqdm(
@@ -286,18 +286,18 @@ def render_global(cfg):
     faces_smpl = make_smplx("smpl").faces
     J_regressor = torch.load("hmr4d/utils/body_model/smpl_neutral_J_regressor.pt").cuda()
 
-    # smpl
+    # SMPL 변환
     smplx_out = smplx(**to_cuda(pred["smpl_params_global"]))
     pred_ay_verts = torch.stack([torch.matmul(smplx2smpl, v_) for v_ in smplx_out.vertices])
 
     def move_to_start_point_face_z(verts):
-        "XZ to origin, Start from the ground, Face-Z"
-        # position
+        """XZ 원점으로 이동하고 지면에서 시작하며 Z축을 향하도록 정렬합니다."""
+        # 위치 정렬
         verts = verts.clone()  # (L, V, 3)
         offset = einsum(J_regressor, verts[0], "j v, v i -> j i")[0]  # (3)
         offset[1] = verts[:, :, [1]].min()
         verts = verts - offset
-        # face direction
+        # 정면 방향 정렬
         T_ay2ayfz = compute_T_ayfz2ay(
             einsum(J_regressor, verts[[0]], "j v, l v i -> l j i"), inverse=True
         )
@@ -313,16 +313,16 @@ def render_global(cfg):
         target_center_height=1.0,
     )
 
-    # -- rendering code -- #
+    # -- rendering 코드 -- #
     video_path = cfg.video_path
     length, width, height = get_video_lwh(video_path)
-    _, _, K = create_camera_sensor(width, height, 24)  # render as 24mm lens
+    _, _, K = create_camera_sensor(width, height, 24)  # 24mm lens로 rendering합니다.
 
-    # renderer
+    # renderer 준비
     renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K)
     # renderer = Renderer(width, height, device="cuda", faces=faces_smpl, K=K, bin_size=0)
 
-    # -- render mesh -- #
+    # -- mesh rendering 실행 -- #
     scale, cx, cz = get_ground_params_from_points(joints_glob[:, 0], verts_glob)
     renderer.set_ground(scale * 1.5, cx, cz)
     color = torch.ones(3).float().cuda() * 0.8
@@ -342,11 +342,11 @@ if __name__ == "__main__":
     Log.info(f"[GPU]: {torch.cuda.get_device_name()}")
     Log.info(f"[GPU]: {torch.cuda.get_device_properties('cuda')}")
 
-    # ===== Preprocess and save to disk ===== #
+    # ===== 전처리 후 디스크에 저장 ===== #
     run_preprocess(cfg)
     data = load_data_dict(cfg)
 
-    # ===== HMR4D ===== #
+    # ===== HMR4D 추론 ===== #
     if not Path(paths.hmr4d_results).exists():
         Log.info("[HMR4D] Predicting")
         model: DemoPL = hydra.utils.instantiate(cfg.model, _recursive_=False)
@@ -359,7 +359,7 @@ if __name__ == "__main__":
         Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")
         torch.save(pred, paths.hmr4d_results)
 
-    # ===== Render ===== #
+    # ===== 결과 rendering ===== #
     render_incam(cfg)
     render_global(cfg)
     if not Path(paths.incam_global_horiz_video).exists():

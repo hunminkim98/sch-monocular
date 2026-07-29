@@ -18,13 +18,13 @@ kwargs_disable_member_var = {
 
 
 class BodyModelSMPLX(nn.Module):
-    """Support Batch inference"""
+    """batch 추론을 지원한다."""
 
-    # smplx model with 22 joints (bedlam-style)
+    # joint 22개를 사용하는 BEDLAM 방식의 SMPL-X 모델
 
     def __init__(self, model_path, **kwargs):
         super().__init__()
-        # enable flexible batchsize, handle missing variable at forward()
+        # 가변 batch 크기를 허용하고 forward의 누락 인자를 처리한다.
         kwargs.update(kwargs_disable_member_var)
         self.bm = smplx.create(model_path=model_path, **kwargs)
         self.faces = self.bm.faces
@@ -39,7 +39,7 @@ class BodyModelSMPLX(nn.Module):
         for i in range(1, parents.shape[0]):
             self.children_map[parents[i]] = i
 
-        # For fast computing of skeleton under beta
+        # beta가 주어진 skeleton을 빠르게 계산하기 위한 buffer
         shapedirs = self.bm.shapedirs  # (V, 3, 10)
         J_regressor = self.bm.J_regressor[:22, :]  # (22, V)
         v_template = self.bm.v_template  # (V, 3)
@@ -135,14 +135,14 @@ class BodyModelSMPLX(nn.Module):
         return bm_out
 
     def get_skeleton(self, betas):
-        """betas: (*, 10) -> skeleton_beta: (*, 22, 3)"""
+        """betas (*, 10)에서 skeleton_beta (*, 22, 3)를 구한다."""
         skeleton_beta = self.J_template + torch.einsum(
             "...d, jcd -> ...jc", betas, self.J_shapedirs
         )  # (22, 3)
         return skeleton_beta
 
     def forward_bfc(self, **kwargs):
-        """Wrap (B, F, C) to (B*F, C) and unwrap (B*F, C) to (B, F, C)"""
+        """(B, F, C)를 (B*F, C)로 묶어 처리한 뒤 (B, F, C)로 되돌린다."""
         for k in kwargs:
             assert len(kwargs[k].shape) == 3
         B, F = kwargs["body_pose"].shape[:2]

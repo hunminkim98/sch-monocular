@@ -20,7 +20,7 @@ class SmplxLite(nn.Module):
     ):
         super().__init__()
 
-        # Load the model
+        # 모델을 불러온다.
         model_path = Path(model_path)
         if model_path.is_dir():
             smplx_path = Path(model_path) / f"SMPLX_{gender.upper()}.npz"
@@ -37,7 +37,7 @@ class SmplxLite(nn.Module):
         # self.register_smplx_buffers(data_struct)
         self.register_fast_skeleton_computing_buffers()
 
-        # default_pose (99,) for torch.cat([global_orient, body_pose, default_pose])
+        # torch.cat([global_orient, body_pose, default_pose])에 사용할 default_pose (99,)
         other_default_pose = torch.cat(
             [
                 torch.zeros(9),
@@ -60,7 +60,7 @@ class SmplxLite(nn.Module):
         J_regressor = to_tensor(to_np(data_struct.J_regressor)).float()
         self.register_buffer("J_regressor", J_regressor, False)
 
-        # posedirs, (54*9, V, 3), note that the first global_orient is not included
+        # posedirs, (54*9, V, 3), 첫 global_orient는 포함하지 않는다.
         posedirs = to_tensor(to_np(data_struct.posedirs)).float()  # (V, 3, 54*9)
         posedirs = rearrange(posedirs, "v c n -> n v c")
         self.register_buffer("posedirs", posedirs, False)
@@ -96,7 +96,7 @@ class SmplxLite(nn.Module):
         self.register_buffer("expr_dirs", expr_dirs, False)
 
     def register_fast_skeleton_computing_buffers(self):
-        # For fast computing of skeleton under beta
+        # beta가 주어진 skeleton을 빠르게 계산하기 위한 buffer
         J_template = self.J_regressor @ self.v_template  # (J, 3)
         J_shapedirs = torch.einsum("jv, vcd -> jcd", self.J_regressor, self.shapedirs)  # (J, 3, 10)
         self.register_buffer("J_template", J_template, False)
@@ -114,15 +114,15 @@ class SmplxLite(nn.Module):
         rotation_type="aa",
     ):
         """
-        Args:
+        인자:
             body_pose: (B, L, 63)
             betas: (B, L, 10)
             global_orient: (B, L, 3)
             transl: (B, L, 3)
-        Returns:
+        반환:
             vertices: (B, L, V, 3)
         """
-        # 1. Convert [global_orient, body_pose, other_default_pose] to rot_mats
+        # 1. [global_orient, body_pose, other_default_pose]를 rot_mats로 변환한다.
         other_default_pose = self.other_default_pose  # (99,)
         if rotation_type == "aa":
             other_default_pose = other_default_pose.expand(*body_pose.shape[:-1], -1)
@@ -130,7 +130,7 @@ class SmplxLite(nn.Module):
             rot_mats = axis_angle_to_matrix(full_pose.reshape(*full_pose.shape[:-1], 55, 3))
             del full_pose, other_default_pose
         else:
-            assert rotation_type == "r6d"  # useful when doing smplify
+            assert rotation_type == "r6d"  # smplify 수행 시 유용하다.
             other_default_pose = axis_angle_to_matrix(other_default_pose.view(33, 3))
             part_full_pose = torch.cat([global_orient, body_pose], dim=-1)
             rot_mats = rotation_6d_to_matrix(part_full_pose.view(*part_full_pose.shape[:-1], 22, 6))
@@ -138,11 +138,11 @@ class SmplxLite(nn.Module):
             rot_mats = torch.cat([rot_mats, other_default_pose], dim=-3)
             del part_full_pose, other_default_pose
 
-        # 2. Forward Kinematics
+        # 2. Forward Kinematics를 계산한다.
         J = self.get_skeleton(betas)  # (*, 55, 3)
         A = batch_rigid_transform_v2(rot_mats, J, self.parents)[1]
 
-        # 3. Canonical v_posed = v_template + shaped_offsets + pose_offsets
+        # 3. canonical v_posed = v_template + shaped_offsets + pose_offsets를 계산한다.
         pose_feature = rot_mats[..., 1:, :, :] - rot_mats.new([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         pose_feature = pose_feature.view(*pose_feature.shape[:-3], -1)  # (*, 55*3*3)
         v_posed = (
@@ -152,23 +152,23 @@ class SmplxLite(nn.Module):
         )
         del pose_feature, rot_mats
 
-        # 4. Skinning
+        # 4. Skinning을 적용한다.
         T = einsum(self.lbs_weights, A, "v j, ... j c d -> ... v c d")
         verts = einsum(T[..., :3, :3], v_posed, "... v c d, ... v d -> ... v c") + T[..., :3, 3]
 
-        # 5. Translation
+        # 5. Translation을 적용한다.
         if transl is not None:
             verts = verts + transl[..., None, :]
         return verts
 
 
 class SmplxLiteCoco17(SmplxLite):
-    """Output COCO17 joints (Faster, but cannot output vertices)"""
+    """COCO17 joint를 출력한다. 더 빠르지만 vertex는 출력할 수 없다."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Compute mapping
+        # mapping을 계산한다.
         smplx2smpl = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt")
         COCO17_regressor = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_coco17_J_regressor.pt")
         smplx2coco17 = torch.matmul(COCO17_regressor, smplx2smpl.to_dense())
@@ -179,15 +179,15 @@ class SmplxLiteCoco17(SmplxLite):
             smplx2coco17_interestd[idx, jid] = smplx2coco17[jid, smplx_vid]
         self.register_buffer("smplx2coco17_interestd", smplx2coco17_interestd, False)  # (132, 17)
 
-        # Update to vertices of interest
+        # 필요한 vertex만 남긴다.
         self.v_template = self.v_template[smplx_vids].clone()  # (V', 3)
         self.shapedirs = self.shapedirs[smplx_vids].clone()  # (V', 3, K)
         self.posedirs = self.posedirs[:, smplx_vids].clone()  # (K, V', 3)
         self.lbs_weights = self.lbs_weights[smplx_vids].clone()  # (V', J)
 
     def forward(self, body_pose, betas, global_orient, transl):
-        """Returns: joints (*, 17, 3). (B, L) or  (B,) are both supported."""
-        # Use super class's forward to get verts
+        """joint (*, 17, 3)를 반환한다. (B, L)과 (B,)를 모두 지원한다."""
+        # 상위 클래스의 forward로 vertex를 구한다.
         verts = super().forward(body_pose, betas, global_orient, transl)  # (*, 132, 3)
         joints = einsum(self.smplx2coco17_interestd, verts, "v j, ... v c -> ... j c")
         return joints
@@ -197,7 +197,7 @@ class SmplxLiteV437Coco17(SmplxLite):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Compute mapping (COCO17)
+        # COCO17 mapping을 계산한다.
         smplx2smpl = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt")
         COCO17_regressor = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_coco17_J_regressor.pt")
         smplx2coco17 = torch.matmul(COCO17_regressor, smplx2smpl.to_dense())
@@ -209,11 +209,11 @@ class SmplxLiteV437Coco17(SmplxLite):
         self.register_buffer("smplx2coco17_interestd", smplx2coco17_interestd, False)  # (132, 17)
         assert len(smplx_vids) == 132
 
-        # Verts437
+        # 437개 vertex
         smplx_vids2 = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx_verts437.pt")
         smplx_vids = torch.cat([smplx_vids, smplx_vids2])
 
-        # Update to vertices of interest
+        # 필요한 vertex만 남긴다.
         self.v_template = self.v_template[smplx_vids].clone()  # (V', 3)
         self.shapedirs = self.shapedirs[smplx_vids].clone()  # (V', 3, K)
         self.posedirs = self.posedirs[:, smplx_vids].clone()  # (K, V', 3)
@@ -221,11 +221,11 @@ class SmplxLiteV437Coco17(SmplxLite):
 
     def forward(self, body_pose, betas, global_orient, transl):
         """
-        Returns:
+        반환:
             verts_437: (*, 437, 3)
-            joints (*, 17, 3). (B, L) or  (B,) are both supported.
+            joints (*, 17, 3). (B, L)과 (B,)를 모두 지원한다.
         """
-        # Use super class's forward to get verts
+        # 상위 클래스의 forward로 vertex를 구한다.
         verts = super().forward(body_pose, betas, global_orient, transl)  # (*, 132+437, 3)
 
         verts_437 = verts[..., 132:, :].clone()
@@ -237,16 +237,16 @@ class SmplxLiteV437Coco23(SmplxLite):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Compute mapping (COCO17)
+        # COCO17 mapping을 계산한다.
         smplx2smpl = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt")
         COCO17_regressor = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_coco17_J_regressor.pt")
-        # 6 foot keypoints (SMPLX vertices):
+        # 발 keypoint 6개(SMPL-X vertex):
         # 'LBigToe': 5770, 'LSmallToe': 5780, 'LHeel': 8846,
         # 'RBigToe': 8463, 'RSmallToe': 8474, 'RHeel': 8635
-        # 6 foot keypoints (SMPL vertices):
+        # 발 keypoint 6개(SMPL vertex):
         # 'LBigToe': 3216, 'LSmallToe': 3226, 'LHeel': 3387,
         # 'RBigToe': 6617, 'RSmallToe': 6624, 'RHeel': 6787
-        # => they are the same. doesn't matter which I use. so just use SMPL ones
+        # 두 목록은 같으므로 SMPL index를 사용한다.
         smpl_foot_indices = [3216, 3226, 3387, 6617, 6624, 6787]
         smpl_foot_regressor = torch.zeros((6, 6890))
         smpl_foot_regressor[torch.arange(6), smpl_foot_indices] = 1.0
@@ -261,11 +261,11 @@ class SmplxLiteV437Coco23(SmplxLite):
         self.register_buffer("smplx2coco23_interestd", smplx2coco23_interestd, False)  # (140, 23)
         assert len(smplx_vids) == 140
 
-        # Verts437
+        # 437개 vertex
         smplx_vids2 = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx_verts437.pt")
         smplx_vids = torch.cat([smplx_vids, smplx_vids2])
 
-        # Update to vertices of interest
+        # 필요한 vertex만 남긴다.
         self.v_template = self.v_template[smplx_vids].clone()  # (V', 3)
         self.shapedirs = self.shapedirs[smplx_vids].clone()  # (V', 3, K)
         self.posedirs = self.posedirs[:, smplx_vids].clone()  # (K, V', 3)
@@ -273,11 +273,11 @@ class SmplxLiteV437Coco23(SmplxLite):
 
     def forward(self, body_pose, betas, global_orient, transl):
         """
-        Returns:
+        반환:
             verts_437: (*, 437, 3)
-            joints (*, 23, 3). (B, L) or  (B,) are both supported.
+            joints (*, 23, 3). (B, L)과 (B,)를 모두 지원한다.
         """
-        # Use super class's forward to get verts
+        # 상위 클래스의 forward로 vertex를 구한다.
         verts = super().forward(body_pose, betas, global_orient, transl)  # (*, 140+437, 3)
         verts_437 = verts[..., 140:, :].clone()
         joints = einsum(self.smplx2coco23_interestd, verts[..., :140, :], "v j, ... v c -> ... j c")
@@ -285,12 +285,12 @@ class SmplxLiteV437Coco23(SmplxLite):
 
 
 class SmplxLiteSmplN24(SmplxLite):
-    """Output SMPL(not smplx)-Neutral 24 joints (Faster, but cannot output vertices)"""
+    """SMPL-X가 아닌 neutral SMPL joint 24개를 출력한다. 더 빠르지만 vertex는 출력할 수 없다."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Compute mapping
+        # mapping을 계산한다.
         smplx2smpl = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smplx2smpl_sparse.pt")
         smpl2joints = torch.load(PROJ_ROOT / "hmr4d/utils/body_model/smpl_neutral_J_regressor.pt")
         smplx2joints = torch.matmul(smpl2joints, smplx2smpl.to_dense())
@@ -301,15 +301,15 @@ class SmplxLiteSmplN24(SmplxLite):
             smplx2joints_interested[idx, jid] = smplx2joints[jid, smplx_vid]
         self.register_buffer("smplx2joints_interested", smplx2joints_interested, False)  # (V', J)
 
-        # Update to vertices of interest
+        # 필요한 vertex만 남긴다.
         self.v_template = self.v_template[smplx_vids].clone()  # (V', 3)
         self.shapedirs = self.shapedirs[smplx_vids].clone()  # (V', 3, K)
         self.posedirs = self.posedirs[:, smplx_vids].clone()  # (K, V', 3)
         self.lbs_weights = self.lbs_weights[smplx_vids].clone()  # (V', J)
 
     def forward(self, body_pose, betas, global_orient, transl):
-        """Returns: joints (*, J, 3). (B, L) or  (B,) are both supported."""
-        # Use super class's forward to get verts
+        """joint (*, J, 3)를 반환한다. (B, L)과 (B,)를 모두 지원한다."""
+        # 상위 클래스의 forward로 vertex를 구한다.
         verts = super().forward(body_pose, betas, global_orient, transl)  # (*, V', 3)
         joints = einsum(self.smplx2joints_interested, verts, "v j, ... v c -> ... j c")
         return joints
@@ -317,11 +317,11 @@ class SmplxLiteSmplN24(SmplxLite):
 
 def batch_rigid_transform_v2(rot_mats, joints, parents):
     """
-    Args:
+    인자:
         rot_mats: (*, J, 3, 3)
         joints: (*, J, 3)
     """
-    # check shape, since sometimes beta has shape=1
+    # beta의 shape이 1인 경우가 있으므로 shape을 확인한다.
     rot_mats_shape_prefix = rot_mats.shape[:-3]
     if rot_mats_shape_prefix != joints.shape[:-2]:
         joints = joints.expand(*rot_mats_shape_prefix, -1, -1)
@@ -334,14 +334,14 @@ def batch_rigid_transform_v2(rot_mats, joints, parents):
 
     transform_chain = [transforms_mat[..., 0, :, :]]
     for i in range(1, parents.shape[0]):
-        # Subtract the joint location at the rest pose
-        # No need for rotation, since it's identity when at rest
+        # rest pose의 joint 위치를 뺀다.
+        # rest pose에서는 identity이므로 회전은 필요 없다.
         curr_res = torch.matmul(transform_chain[parents[i]], transforms_mat[..., i, :, :])
         transform_chain.append(curr_res)
 
     transforms = torch.stack(transform_chain, dim=-3)  # (*, J, 4, 4)
 
-    # The last column of the transformations contains the posed joints
+    # transformation의 마지막 열에 pose가 적용된 joint가 들어 있다.
     posed_joints = transforms[..., :3, 3].clone()
     rel_transforms = transforms.clone()
     rel_transforms[..., :3, 3] -= einsum(transforms[..., :3, :3], joints, "... j c d, ... j d -> ... j c")

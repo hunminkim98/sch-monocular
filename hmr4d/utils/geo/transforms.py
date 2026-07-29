@@ -2,7 +2,7 @@ import torch
 
 
 def axis_rotate_to_matrix(angle, axis="x"):
-    """Get rotation matrix for rotating around one axis
+    """한 축을 중심으로 회전하는 rotation matrix를 구합니다.
     Args:
         angle: (N, 1)
     Returns:

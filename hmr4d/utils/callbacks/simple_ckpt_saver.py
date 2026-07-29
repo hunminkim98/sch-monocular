@@ -10,8 +10,8 @@ from hmr4d.configs import MainStore, builds
 
 class SimpleCkptSaver(Checkpoint):
     """
-    This callback runs at the end of each training epoch.
-    Check {every_n_epochs} and save at most {save_top_k} model if it is time.
+    이 콜백은 각 학습 epoch가 끝날 때 실행된다.
+    {every_n_epochs} 간격을 확인하고 최대 {save_top_k}개의 모델을 저장한다.
     """
 
     def __init__(
@@ -31,25 +31,25 @@ class SimpleCkptSaver(Checkpoint):
         self.save_last = save_last
         self.save_weights_only = save_weights_only
 
-        # Setup output dir
+        # 출력 디렉터리를 준비한다.
         if rank_zero_only.rank == 0:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             Log.info(f"[Simple Ckpt Saver]: Save to `{self.output_dir}'")
 
     @rank_zero_only
     def on_train_epoch_end(self, trainer, pl_module):
-        """Save a checkpoint at the end of the training epoch."""
+        """학습 epoch가 끝날 때 체크포인트를 저장한다."""
         if self.every_n_epochs >= 1 and (trainer.current_epoch + 1) % self.every_n_epochs == 0:
             if self.save_top_k == 0:
                 return
 
-            # Current saved ckpts in the output_dir
+            # 출력 디렉터리에 현재 저장된 체크포인트를 찾는다.
             model_paths = []
             for p in sorted(list(self.output_dir.glob("*.ckpt"))):
                 model_paths.append(p)
             model_to_remove = model_paths[0] if len(model_paths) >= self.save_top_k else None
 
-            # Save cureent checkpoint
+            # 현재 체크포인트를 저장한다.
             filepath = self.output_dir / self.filename.format(epoch=trainer.current_epoch, step=trainer.global_step)
             checkpoint = {
                 "epoch": trainer.current_epoch,
@@ -60,15 +60,15 @@ class SimpleCkptSaver(Checkpoint):
             pl_module.on_save_checkpoint(checkpoint)
 
             if not self.save_weights_only:
-                # optimizer
+                # 옵티마이저 상태
                 optimizer_states = []
                 for i, optimizer in enumerate(trainer.optimizers):
-                    # Rely on accelerator to dump optimizer state
+                    # 가속기 구현을 통해 옵티마이저 상태를 추출한다.
                     optimizer_state = trainer.strategy.optimizer_state(optimizer)
                     optimizer_states.append(optimizer_state)
                 checkpoint["optimizer_states"] = optimizer_states
 
-                # lr_scheduler
+                # 학습률 스케줄러 상태
                 lr_schedulers = []
                 for config in trainer.lr_scheduler_configs:
                     lr_schedulers.append(config.scheduler.state_dict())
@@ -77,7 +77,7 @@ class SimpleCkptSaver(Checkpoint):
             # trainer.strategy.checkpoint_io.save_checkpoint(checkpoint, filepath)
             torch.save(checkpoint, filepath)
 
-            # Remove the earliest checkpoint
+            # 가장 오래된 체크포인트를 제거한다.
             if model_to_remove:
                 trainer.strategy.remove_checkpoint(model_paths[0])
 

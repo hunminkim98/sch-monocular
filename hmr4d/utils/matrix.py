@@ -33,15 +33,8 @@ def identity_mat(x=None, device="cpu", is_numpy=False):
 
 
 def vec2mat(vec):
-    """_summary_
-
-    Args:
-        vec (tensor): [12], pos, forward, up and right
-
-    Returns:
-        mat_world(tensor): [4, 4]
-    """
-    # Assume bs = 1
+    """위치와 방향을 담은 vec [12]를 world matrix [4, 4]로 변환한다."""
+    # batch 크기가 1이라고 가정한다.
     v = np.tile(np.array([[0, 0, 0, 1]]), (1, 1))
     if isinstance(vec, torch.Tensor):
         v = torch.tensor(
@@ -67,15 +60,8 @@ def vec2mat(vec):
 
 
 def mat2vec(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [4, 4]
-
-    Returns:
-        vec (tensor): [12], pos, forward, up and right
-    """
-    # Assume bs = 1
+    """matrix [4, 4]를 위치와 방향을 담은 vec [12]로 변환한다."""
+    # batch 크기가 1이라고 가정한다.
     pos = mat[:-1, 3]
     forward = normalized(mat[:-1, 2])
     up = normalized(mat[:-1, 1])
@@ -91,15 +77,7 @@ def mat2vec(mat):
 
 
 def vec2mat_batch(vec):
-    """_summary_
-
-    Args:
-        vec (tensor): [B, 12], pos, forward, up and right
-
-    Returns:
-        mat_world(tensor): [B, 4, 4]
-    """
-    # Assume bs = 1
+    """vec batch [B, 12]를 world matrix batch [B, 4, 4]로 변환한다."""
 
     v = np.tile(np.array([[0, 0, 0, 1]], dtype=np.float32), (vec.shape[0], 1, 1))
     if isinstance(vec, torch.Tensor):
@@ -126,14 +104,7 @@ def vec2mat_batch(vec):
 
 
 def rotmat2tan_norm(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 3, 3]
-
-    Returns:
-        vec (tensor): [B, 6], tan norm
-    """
+    """회전 행렬 [B, 3, 3]을 tangent-normal 표현 [B, 6]으로 변환한다."""
     if isinstance(mat, np.ndarray):
         tan = np.zeros_like(mat[..., 2])
         norm = np.zeros_like(mat[..., 0])
@@ -156,27 +127,13 @@ def rotmat2tan_norm(mat):
 
 
 def mat2tan_norm(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 4, 4]
-
-    Returns:
-        vec (tensor): [B, 6], tan norm
-    """
+    """transformation matrix [B, 4, 4]를 tangent-normal 표현 [B, 6]으로 변환한다."""
     rot_mat = mat[..., :-1, :-1]
     return rotmat2tan_norm(rot_mat)
 
 
 def rotmat2tan_norm(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 3, 3]
-
-    Returns:
-        vec (tensor): [B, 6], tan norm
-    """
+    """회전 행렬 [B, 3, 3]을 tangent-normal 표현 [B, 6]으로 변환한다."""
     if isinstance(mat, np.ndarray):
         tan = np.zeros_like(mat[..., 2])
         norm = np.zeros_like(mat[..., 0])
@@ -201,14 +158,7 @@ def rotmat2tan_norm(mat):
 
 
 def tan_norm2rotmat(tan_norm):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 6]
-
-    Returns:
-        vec (tensor): [B, 3]
-    """
+    """tangent-normal 표현 [B, 6]을 회전 행렬 [B, 3, 3]으로 변환한다."""
     tan = copy.deepcopy(tan_norm[..., :3])
     norm = copy.deepcopy(tan_norm[..., 3:])
     tan[..., -1] *= -1
@@ -232,15 +182,7 @@ def tan_norm2rotmat(tan_norm):
 
 
 def rotmat332vec_batch(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 3, 3]
-
-    Returns:
-        vec (tensor): [B, 6], forward, up, right
-    """
-    # Assume bs = 1
+    """회전 행렬 [B, 3, 3]을 방향 vector로 변환한다."""
     mat = normalized_matrix(mat)
     forward = mat[..., :, 2]
     up = mat[..., :, 1]
@@ -255,15 +197,7 @@ def rotmat332vec_batch(mat):
 
 
 def rotmat2vec_batch(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 4, 4]
-
-    Returns:
-        vec (tensor): [B, 9], forward, up, right
-    """
-    # Assume bs = 1
+    """transformation matrix [B, 4, 4]를 방향 vector [B, 9]로 변환한다."""
     mat = normalized_matrix(mat)
     forward = mat[..., :-1, 2]
     up = mat[..., :-1, 1]
@@ -278,15 +212,7 @@ def rotmat2vec_batch(mat):
 
 
 def mat2vec_batch(mat):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 4, 4]
-
-    Returns:
-        vec (tensor): [B, 12], pos, forward, up and right
-    """
-    # Assume bs = 1
+    """matrix [B, 4, 4]를 위치와 방향 vector [B, 12]로 변환한다."""
     mat = normalized_matrix(mat)
     pos = mat[..., :-1, 3]
     forward = mat[..., :-1, 2]
@@ -302,15 +228,7 @@ def mat2vec_batch(mat):
 
 
 def mat2pose_batch(mat, returnvel=True):
-    """_summary_
-
-    Args:
-        mat(tensor): [B, 4, 4]
-
-    Returns:
-        vec (tensor): [B, 12], pos, forward, up, zeros
-    """
-    # Assume bs = 1
+    """matrix [B, 4, 4]를 위치, 방향, 속도 항으로 구성된 pose vector로 변환한다."""
     mat = normalized_matrix(mat)
     pos = mat[..., :-1, 3]
     forward = mat[..., :-1, 2]
@@ -334,8 +252,8 @@ def mat2pose_batch(mat, returnvel=True):
 
 def get_mat_BinA(matCtoA, matCtoB):
     """
-        given matrix of the same object in two coordinate A and B,
-        return matrix B in the coordinate of A
+        같은 객체를 좌표계 A와 B에서 나타낸 matrix로부터
+        A 좌표계에서의 B matrix를 반환한다.
 
     Args:
         matCtoA (tensor): [4, 4] world matrix
@@ -358,7 +276,7 @@ def get_mat_BinA(matCtoA, matCtoB):
 
 def get_mat_BtoA(matA, matB):
     """
-        return matrix B in the coordinate of A
+        A 좌표계에서의 B matrix를 반환한다.
 
     Args:
         matA (tensor): [4, 4] world matrix
@@ -381,11 +299,11 @@ def get_mat_BtoA(matA, matB):
 
 def get_mat_BfromA(matA, matBtoA):
     """
-        return world matrix B given matrix A and mat B realtive to A
+        matrix A와 A 기준의 상대 matrix B를 이용해 B의 world matrix를 반환한다.
 
     Args:
-        matA (_type_): [4, 4] world matrix
-        matBtoA (_type_): [4, 4] matrix B relative to A
+        matA: [4, 4] world matrix
+        matBtoA: [4, 4] A 기준의 B matrix
     """
     if isinstance(matA, torch.Tensor):
         matB = torch.matmul(matA, matBtoA)
@@ -396,15 +314,7 @@ def get_mat_BfromA(matA, matBtoA):
 
 
 def get_relative_position_to(pos, mat):
-    """_summary_
-
-    Args:
-        pos (_type_): [N, M, 3] or [N, 3]
-        mat (_type_): [N, 4, 4] or [4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """world 위치를 주어진 matrix 기준의 상대 위치로 변환한다."""
     if isinstance(mat, torch.Tensor):
         mat_inv = torch.inverse(mat)
     elif isinstance(mat, np.ndarray):
@@ -421,65 +331,29 @@ def get_relative_position_to(pos, mat):
 
 
 def get_rotation(mat):
-    """_summary_
-
-    Args:
-        mat (_type_): [..., 4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """transformation matrix에서 rotation을 가져온다."""
     return mat[..., :-1, :-1]
 
 
 def set_rotation(mat, rotmat):
-    """_summary_
-
-    Args:
-        mat (_type_): [..., 4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """transformation matrix의 rotation을 설정한다."""
     mat[..., :-1, :-1] = rotmat
     return mat
 
 
 def set_position(mat, pos):
-    """_summary_
-
-    Args:
-        mat (_type_): [..., 4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """transformation matrix의 위치를 설정한다."""
     mat[..., :-1, 3] = pos
     return mat
 
 
 def get_position(mat):
-    """_summary_
-
-    Args:
-        mat (_type_): [..., 4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """transformation matrix에서 위치를 가져온다."""
     return mat[..., :-1, 3]
 
 
 def get_position_from(pos, mat):
-    """_summary_
-
-    Args:
-        pos (_type_): [N, M, 3] or [N, 3]
-        mat (_type_): [N, 4, 4] or [4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """상대 위치를 주어진 matrix 기준의 world 위치로 변환한다."""
     if isinstance(mat, torch.Tensor):
         rot_pos = torch.matmul(mat[..., :-1, :-1], pos.transpose(-1, -2)).transpose(-1, -2)
     elif isinstance(mat, np.ndarray):
@@ -492,15 +366,7 @@ def get_position_from(pos, mat):
 
 
 def get_position_from_rotmat(pos, mat):
-    """_summary_
-
-    Args:
-        pos (_type_): [N, M, 3] or [N, 3]
-        mat (_type_): [N, 4, 4] or [4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """회전 행렬을 위치 vector에 적용한다."""
     if isinstance(mat, torch.Tensor):
         rot_pos = torch.matmul(mat, pos.transpose(-1, -2)).transpose(-1, -2)
     elif isinstance(mat, np.ndarray):
@@ -511,15 +377,7 @@ def get_position_from_rotmat(pos, mat):
 
 
 def get_relative_direction_to(dir, mat):
-    """_summary_
-
-    Args:
-        dir (_type_): [N, M, 3] or [N, 3]
-        mat (_type_): [N, 4, 4] or [4, 4]
-
-    Returns:
-        _type_: _description_
-    """
+    """world 방향을 주어진 matrix 기준의 상대 방향으로 변환한다."""
     if isinstance(mat, torch.Tensor):
         mat_inv = torch.inverse(mat)
     elif isinstance(mat, np.ndarray):
@@ -540,15 +398,7 @@ def get_relative_direction_to(dir, mat):
 
 
 def get_direction_from(dir, mat):
-    """_summary_
-
-    Args:
-        dir (_type_): [N, M, 3] or [N, 3]
-        mat (_type_): [N, 4, 4] or [4, 4]
-
-    Returns:
-        tensor: [N, M, 3] or [N, 3]
-    """
+    """상대 방향을 주어진 matrix 기준의 world 방향으로 변환한다."""
     rot_mat = mat[..., :3, :3]
     if isinstance(mat, torch.Tensor):
         world_dir = torch.matmul(rot_mat, dir.transpose(-1, -2))
@@ -569,14 +419,7 @@ def get_coord_vis(pos, rot_mat, scale=1.0):
 
 
 def project_vec(vec):
-    """_summary_
-
-    Args:
-        vec (tensor): [*, 12], pos, forward, up and right
-
-    Returns:
-        proj_vec (tensor): [*, 4], posx, posz, forwardx, forwardz
-    """
+    """위치·방향 vector를 xz 평면의 위치와 정면 방향으로 투영한다."""
     posx = vec[..., 0:1]
     posz = vec[..., 2:3]
     forwardx = vec[..., 3:4]
@@ -640,14 +483,7 @@ def normalized_matrix(mat):
 
 
 def get_rot_mat_from_forward(forward):
-    """_summary_
-
-    Args:
-        forward (tensor): [N, M, 3]
-
-    Returns:
-        mat (tensor): [N, M, 3, 3]
-    """
+    """정면 방향 vector에서 회전 행렬을 구한다."""
     if isinstance(forward, torch.Tensor):
         mat = torch.eye(3, device=forward.device).repeat(forward.shape[:-1] + (1, 1))
         right = torch.zeros_like(forward)
@@ -663,7 +499,7 @@ def get_rot_mat_from_forward(forward):
     right[..., 0] = forward[..., 2]
     right[..., 1] = 0.0
     right[..., 2] = -forward[..., 0]
-    # right = torch.cross(mat[..., 1], forward)  # cannot backward
+    # right = torch.cross(mat[..., 1], forward)  # backward를 수행할 수 없다.
 
     mat[..., 2] = normalized(forward)
     right = normalized(right)
@@ -672,15 +508,7 @@ def get_rot_mat_from_forward(forward):
 
 
 def get_rot_mat_from_forward_up(forward, up):
-    """_summary_
-
-    Args:
-        forward (tensor): [N, M, 3]
-        up (tensor): [N, M, 3]
-
-    Returns:
-        mat (tensor): [N, M, 3, 3]
-    """
+    """정면과 위쪽 방향 vector에서 회전 행렬을 구한다."""
     if isinstance(forward, torch.Tensor):
         mat = torch.eye(3, device=forward.device).repeat(forward.shape[:-1] + (1, 1))
         right = torch.cross(up, forward)
@@ -701,29 +529,14 @@ def get_rot_mat_from_forward_up(forward, up):
 
 
 def get_rot_mat_from_pose_vec(vec):
-    """_summary_
-
-    Args:
-        vec (tensor): [N, M, 6]
-
-    Returns:
-        mat (tensor): [N, M, 3, 3]
-    """
+    """pose vector [N, M, 6]에서 회전 행렬을 구한다."""
     forward = vec[..., :3]
     up = vec[..., 3:6]
     return get_rot_mat_from_forward_up(forward, up)
 
 
 def get_TRS(rot_mat, pos):
-    """_summary_
-
-    Args:
-        rot_mat (tensor): [N, 3, 3]
-        pos (tensor): [N, 3]
-
-    Returns:
-        mat (tensor): [N, 4, 4]
-    """
+    """rotation과 위치에서 TRS matrix를 만든다."""
     if isinstance(rot_mat, torch.Tensor):
         mat = torch.eye(4, device=pos.device).repeat(pos.shape[:-1] + (1, 1))
     elif isinstance(rot_mat, np.ndarray):
@@ -740,14 +553,7 @@ def get_TRS(rot_mat, pos):
 
 
 def xzvec2mat(vec):
-    """_summary_
-
-    Args:
-        vec (tensor): [N, 4]
-
-    Returns:
-        mat (tensor): [N, 4, 4]
-    """
+    """xz 평면의 위치·방향 vector를 transformation matrix로 변환한다."""
     vec_shape = vec.shape[:-1]
     if isinstance(vec, torch.Tensor):
         pos = torch.zeros(vec_shape + (3,))
@@ -785,18 +591,11 @@ def get_relative_pose_from_vec(pose, root, N):
 
 
 def get_forward_from_pos(pos):
-    """_summary_
-
-    Args:
-        pos (N, J, 3): joints positions of each frame
-
-    Returns:
-        _type_: _description_
-    """
+    """각 frame의 joint 위치 (N, J, 3)에서 정면 방향을 구한다."""
 
     pos_y_vec = torch.tensor([0, 1, 0], dtype=torch.float32).to(pos.device)
     face_joint_indx = [2, 1, 17, 16]
-    r_hip, l_hip, r_sdr, l_sdr = face_joint_indx  # use hip and shoulder to get the cross vector
+    r_hip, l_hip, r_sdr, l_sdr = face_joint_indx  # hip과 shoulder로 교차 vector를 구한다.
     cross_hip = pos[..., 0, r_hip, :] - pos[..., 0, l_hip, :]
     cross_sdr = pos[..., 0, r_sdr, :] - pos[..., 0, l_sdr, :]
     cross_vec = cross_hip + cross_sdr  # (3, )
@@ -806,17 +605,7 @@ def get_forward_from_pos(pos):
 
 
 def project_point_along_ray(p, ray, keepnorm=False):
-    """_summary_
-
-    Args:
-        p (*, 3): point positions
-        ray (*, 3): ray direction
-        keepnorm: False -> project point on the ray,
-                  True -> project point on the ray and keep the point length
-
-    Returns:
-        _type_: _description_
-    """
+    """point를 ray에 투영하며 keepnorm이면 원래 point 길이를 유지한다."""
     ray = normalized(ray)
     if keepnorm:
         new_p = ray * p.norm(dim=-1, keepdim=True)
@@ -827,16 +616,7 @@ def project_point_along_ray(p, ray, keepnorm=False):
 
 
 def solve_point_along_ray_with_constraint(c, ray, p, constraint="x"):
-    """_summary_
-
-    Args:
-        c (*,): constraint value
-        ray (*, 3): ray direction
-        p (*, 3): start point of the ray
-
-    Returns:
-        _type_: _description_
-    """
+    """지정 축의 제약값을 만족하는 ray 위 point를 구한다."""
     ray = normalized(ray)
     if constraint == "x":
         ind = 0
@@ -853,16 +633,7 @@ def solve_point_along_ray_with_constraint(c, ray, p, constraint="x"):
 
 
 def calc_cosine(vec1, vec2, return_angle=False):
-    """_summary_
-
-    Args:
-        vec1 (*, 3): vector
-        vec2 (*, 3): vector
-        return_angle: True -> return angle, False -> return cosine
-
-    Returns:
-        _type_: _description_
-    """
+    """두 vector의 cosine을 구하며 return_angle이면 각도를 반환한다."""
     vec1 = normalized(vec1)
     vec2 = normalized(vec2)
     cosine = torch.sum(vec1 * vec2, dim=-1)
@@ -873,7 +644,7 @@ def calc_cosine(vec1, vec2, return_angle=False):
 
 ############################################
 #
-# quaternion assumes xyzw
+# quaternion은 xyzw 순서를 사용한다.
 #
 ############################################
 
@@ -890,7 +661,7 @@ def quat_wxyz2xyzw(quat):
 
 def quat_mul(a, b):
     """
-    quaternion multiplication
+    quaternion을 곱한다.
     """
     x1, y1, z1, w1 = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
     x2, y2, z2, w2 = b[..., 0], b[..., 1], b[..., 2], b[..., 3]
@@ -905,7 +676,7 @@ def quat_mul(a, b):
 
 def quat_pos(x):
     """
-    make all the real part of the quaternion positive
+    quaternion의 실수부를 양수로 만든다.
     """
     q = x
     z = (q[..., 3:] < 0).float()
@@ -915,7 +686,7 @@ def quat_pos(x):
 
 def quat_abs(x):
     """
-    quaternion norm (unit quaternion represents a 3D rotation, which has norm of 1)
+    quaternion norm을 구한다. 3D 회전을 나타내는 unit quaternion의 norm은 1이다.
     """
     x = x.norm(p=2, dim=-1)
     return x
@@ -923,7 +694,7 @@ def quat_abs(x):
 
 def quat_unit(x):
     """
-    normalized quaternion with norm of 1
+    norm이 1인 정규화 quaternion을 구한다.
     """
     norm = quat_abs(x).unsqueeze(-1)
     return x / (norm.clamp(min=1e-4))
@@ -931,28 +702,28 @@ def quat_unit(x):
 
 def quat_conjugate(x):
     """
-    quaternion with its imaginary part negated
+    허수부의 부호를 반전한 quaternion을 구한다.
     """
     return torch.cat([-x[..., :3], x[..., 3:]], dim=-1)
 
 
 def quat_real(x):
     """
-    real component of the quaternion
+    quaternion의 실수부를 가져온다.
     """
     return x[..., 3]
 
 
 def quat_imaginary(x):
     """
-    imaginary components of the quaternion
+    quaternion의 허수부를 가져온다.
     """
     return x[..., :3]
 
 
 def quat_norm_check(x):
     """
-    verify that a quaternion has norm 1
+    quaternion의 norm이 1인지 확인한다.
     """
     assert bool((abs(x.norm(p=2, dim=-1) - 1) < 1e-3).all()), "the quaternion is has non-1 norm: {}".format(
         abs(x.norm(p=2, dim=-1) - 1)
@@ -962,15 +733,15 @@ def quat_norm_check(x):
 
 def quat_normalize(q):
     """
-    Construct 3D rotation from quaternion (the quaternion needs not to be normalized).
+    정규화되지 않은 quaternion을 정규화해 3D 회전으로 만든다.
     """
-    q = quat_unit(quat_pos(q))  # normalized to positive and unit quaternion
+    q = quat_unit(quat_pos(q))  # 실수부가 양수인 unit quaternion으로 정규화한다.
     return q
 
 
 def quat_from_xyz(xyz):
     """
-    Construct 3D rotation from the imaginary component
+    허수부에서 3D 회전을 구성한다.
     """
     w = (1.0 - xyz.norm()).unsqueeze(-1)
     assert bool((w >= 0).all()), "xyz has its norm greater than 1"
@@ -979,7 +750,7 @@ def quat_from_xyz(xyz):
 
 def quat_identity(shape: List[int]):
     """
-    Construct 3D identity rotation given shape
+    주어진 shape의 3D identity 회전을 만든다.
     """
     w = torch.ones(shape + (1,))
     xyz = torch.zeros(shape + (3,))
@@ -988,18 +759,17 @@ def quat_identity(shape: List[int]):
 
 
 def tgm_quat_from_angle_axis(angle, axis, degree: bool = False):
-    """Create a 3D rotation from angle and axis of rotation. The rotation is counter-clockwise
-    along the axis.
+    """회전 각도와 축에서 3D 회전을 만든다. 회전은 축을 따라 반시계 방향이다.
 
-    The rotation can be interpreted as a_R_b where frame "b" is the new frame that
-    gets rotated counter-clockwise along the axis from frame "a"
+    이 회전은 frame "a"에서 축을 따라 반시계 방향으로 회전해 새 frame "b"가 된
+    a_R_b로 해석할 수 있다.
 
-    :param angle: angle of rotation
+    :param angle: 회전 각도
     :type angle: Tensor
-    :param axis: axis of rotation
+    :param axis: 회전 축
     :type axis: Tensor
-    :param degree: put True here if the angle is given by degree
-    :type degree: bool, optional, default=False
+    :param degree: 각도가 degree 단위이면 True
+    :type degree: bool, 선택, 기본값=False
     """
     if degree:
         angle = angle / 180.0 * math.pi
@@ -1012,11 +782,11 @@ def tgm_quat_from_angle_axis(angle, axis, degree: bool = False):
 
 def quat_from_rotation_matrix(m):
     """
-    Construct a 3D rotation from a valid 3x3 rotation matrices.
-    Reference can be found here:
+    유효한 3x3 회전 행렬에서 3D 회전을 구성한다.
+    참고 자료:
     http://www.cg.info.hiroshima-cu.ac.jp/~miyazaki/knowledge/teche52.html
 
-    :param m: 3x3 orthogonal rotation matrices.
+    :param m: 3x3 직교 회전 행렬
     :type m: Tensor
 
     :rtype: Tensor
@@ -1026,31 +796,31 @@ def quat_from_rotation_matrix(m):
     diag1 = m[..., 1, 1]
     diag2 = m[..., 2, 2]
 
-    # Math stuff.
+    # 수학적 계산
     w = (((diag0 + diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
     x = (((diag0 - diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
     y = (((-diag0 + diag1 - diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
     z = (((-diag0 - diag1 + diag2 + 1.0) / 4.0).clamp(0.0, None)) ** 0.5
 
-    # Only modify quaternions where w > x, y, z.
+    # w가 x, y, z보다 큰 quaternion만 수정한다.
     c0 = (w >= x) & (w >= y) & (w >= z)
     x[c0] *= (m[..., 2, 1][c0] - m[..., 1, 2][c0]).sign()
     y[c0] *= (m[..., 0, 2][c0] - m[..., 2, 0][c0]).sign()
     z[c0] *= (m[..., 1, 0][c0] - m[..., 0, 1][c0]).sign()
 
-    # Only modify quaternions where x > w, y, z
+    # x가 w, y, z보다 큰 quaternion만 수정한다.
     c1 = (x >= w) & (x >= y) & (x >= z)
     w[c1] *= (m[..., 2, 1][c1] - m[..., 1, 2][c1]).sign()
     y[c1] *= (m[..., 1, 0][c1] + m[..., 0, 1][c1]).sign()
     z[c1] *= (m[..., 0, 2][c1] + m[..., 2, 0][c1]).sign()
 
-    # Only modify quaternions where y > w, x, z.
+    # y가 w, x, z보다 큰 quaternion만 수정한다.
     c2 = (y >= w) & (y >= x) & (y >= z)
     w[c2] *= (m[..., 0, 2][c2] - m[..., 2, 0][c2]).sign()
     x[c2] *= (m[..., 1, 0][c2] + m[..., 0, 1][c2]).sign()
     z[c2] *= (m[..., 2, 1][c2] + m[..., 1, 2][c2]).sign()
 
-    # Only modify quaternions where z > w, x, y.
+    # z가 w, x, y보다 큰 quaternion만 수정한다.
     c3 = (z >= w) & (z >= x) & (z >= y)
     w[c3] *= (m[..., 1, 0][c3] - m[..., 0, 1][c3]).sign()
     x[c3] *= (m[..., 2, 0][c3] + m[..., 0, 2][c3]).sign()
@@ -1061,15 +831,14 @@ def quat_from_rotation_matrix(m):
 
 def quat_mul_norm(x, y):
     """
-    Combine two set of 3D rotations together using \**\* operator. The shape needs to be
-    broadcastable
+    두 3D 회전 집합을 곱한다. shape은 broadcast가 가능해야 한다.
     """
     return quat_normalize(quat_mul(x, y))
 
 
 def quat_rotate(rot, vec):
     """
-    Rotate a 3D vector with the 3D rotation
+    3D 회전을 3D vector에 적용한다.
     """
     other_q = torch.cat([vec, torch.zeros_like(vec[..., :1])], dim=-1)
     return quat_imaginary(quat_mul(quat_mul(rot, other_q), quat_conjugate(rot)))
@@ -1077,25 +846,24 @@ def quat_rotate(rot, vec):
 
 def quat_inverse(x):
     """
-    The inverse of the rotation
+    회전의 역을 구한다.
     """
     return quat_conjugate(x)
 
 
 def quat_identity_like(x):
     """
-    Construct identity 3D rotation with the same shape
+    같은 shape의 3D identity 회전을 만든다.
     """
     return quat_identity(x.shape[:-1])
 
 
 def quat_angle_axis(x):
     """
-    The (angle, axis) representation of the rotation. The axis is normalized to unit length.
-    The angle is guaranteed to be between [0, pi].
+    회전을 (angle, axis)로 표현한다. 축은 unit length로 정규화되며 각도는 [0, pi] 범위이다.
     """
     s = 2 * (x[..., 3] ** 2) - 1
-    angle = s.clamp(-1, 1).arccos()  # just to be safe
+    angle = s.clamp(-1, 1).arccos()  # 수치 안정성을 위해 범위를 제한한다.
     axis = x[..., :3]
     axis /= axis.norm(p=2, dim=-1, keepdim=True).clamp(min=1e-4)
     return angle, axis
@@ -1103,7 +871,7 @@ def quat_angle_axis(x):
 
 def quat_yaw_rotation(x, z_up: bool = True):
     """
-    Yaw rotation (rotation along z-axis)
+    yaw 회전, 즉 z축을 중심으로 한 회전을 구한다.
     """
     q = x
     if z_up:
@@ -1123,7 +891,7 @@ def quat_yaw_rotation(x, z_up: bool = True):
 
 def transform_from_rotation_translation(r: Optional[torch.Tensor] = None, t: Optional[torch.Tensor] = None):
     """
-    Construct a transform from a quaternion and 3D translation. Only one of them can be None.
+    quaternion과 3D translation으로 transform을 만든다. 둘 중 하나만 None일 수 있다.
     """
     assert r is not None or t is not None, "rotation and translation can't be all None"
     if r is None:
@@ -1136,7 +904,7 @@ def transform_from_rotation_translation(r: Optional[torch.Tensor] = None, t: Opt
 
 def transform_identity(shape: List[int]):
     """
-    Identity transformation with given shape
+    주어진 shape의 identity transformation을 만든다.
     """
     r = quat_identity(shape)
     t = torch.zeros(shape + [3])
@@ -1144,18 +912,18 @@ def transform_identity(shape: List[int]):
 
 
 def transform_rotation(x):
-    """Get rotation from transform"""
+    """transform에서 rotation을 가져온다."""
     return x[..., :4]
 
 
 def transform_translation(x):
-    """Get translation from transform"""
+    """transform에서 translation을 가져온다."""
     return x[..., 4:]
 
 
 def transform_inverse(x):
     """
-    Inverse transformation
+    transformation의 역을 구한다.
     """
     inv_so3 = quat_inverse(transform_rotation(x))
     return transform_from_rotation_translation(r=inv_so3, t=quat_rotate(inv_so3, -transform_translation(x)))
@@ -1163,14 +931,14 @@ def transform_inverse(x):
 
 def transform_identity_like(x):
     """
-    identity transformation with the same shape
+    같은 shape의 identity transformation을 만든다.
     """
     return transform_identity(x.shape)
 
 
 def transform_mul(x, y):
     """
-    Combine two transformation together
+    두 transformation을 합성한다.
     """
     z = transform_from_rotation_translation(
         r=quat_mul_norm(transform_rotation(x), transform_rotation(y)),
@@ -1181,7 +949,7 @@ def transform_mul(x, y):
 
 def transform_apply(rot, vec):
     """
-    Transform a 3D vector
+    transformation을 3D vector에 적용한다.
     """
     assert isinstance(vec, torch.Tensor)
     return quat_rotate(transform_rotation(rot), vec) + transform_translation(rot)
@@ -1189,8 +957,7 @@ def transform_apply(rot, vec):
 
 def rot_matrix_det(x):
     """
-    Return the determinant of the 3x3 matrix. The shape of the tensor will be as same as the
-    shape of the matrix
+    3x3 matrix의 determinant를 반환한다. tensor shape은 matrix의 batch shape을 따른다.
     """
     a, b, c = x[..., 0, 0], x[..., 0, 1], x[..., 0, 2]
     d, e, f = x[..., 1, 0], x[..., 1, 1], x[..., 1, 2]
@@ -1203,7 +970,7 @@ def rot_matrix_det(x):
 
 def rot_matrix_integrity_check(x):
     """
-    Verify that a rotation matrix has a determinant of one and is orthogonal
+    회전 행렬의 determinant가 1이고 직교하는지 확인한다.
     """
     det = rot_matrix_det(x)
     assert bool((abs(det - 1) < 1e-3).all()), "the matrix has non-one determinant"
@@ -1217,12 +984,12 @@ def rot_matrix_integrity_check(x):
 
 def rot_matrix_from_quaternion(q):
     """
-    Construct rotation matrix from quaternion
+    quaternion에서 회전 행렬을 만든다.
     """
-    # Shortcuts for individual elements (using wikipedia's convention)
+    # Wikipedia 표기법에 따른 각 원소의 축약 표현
     qi, qj, qk, qr = q[..., 0], q[..., 1], q[..., 2], q[..., 3]
 
-    # Set individual elements
+    # 각 원소를 설정한다.
     R00 = 1.0 - 2.0 * (qj**2 + qk**2)
     R01 = 2 * (qi * qj - qk * qr)
     R02 = 2 * (qi * qk + qj * qr)
@@ -1244,27 +1011,27 @@ def rot_matrix_from_quaternion(q):
 
 def euclidean_to_rotation_matrix(x):
     """
-    Get the rotation matrix on the top-left corner of a Euclidean transformation matrix
+    Euclidean transformation matrix의 왼쪽 위에서 회전 행렬을 가져온다.
     """
     return x[..., :3, :3]
 
 
 def euclidean_integrity_check(x):
-    euclidean_to_rotation_matrix(x)  # check 3d-rotation matrix
+    euclidean_to_rotation_matrix(x)  # 3D 회전 행렬을 확인한다.
     assert bool((x[..., 3, :3] == 0).all()), "the last row is illegal"
     assert bool((x[..., 3, 3] == 1).all()), "the last row is illegal"
 
 
 def euclidean_translation(x):
     """
-    Get the translation vector located at the last column of the matrix
+    matrix 마지막 열의 translation vector를 가져온다.
     """
     return x[..., :3, 3]
 
 
 def euclidean_inverse(x):
     """
-    Compute the matrix that represents the inverse rotation
+    역회전을 나타내는 matrix를 계산한다.
     """
     s = x.zeros_like()
     irot = quat_inverse(quat_from_rotation_matrix(x))
@@ -1275,7 +1042,7 @@ def euclidean_inverse(x):
 
 def euclidean_to_transform(transformation_matrix):
     """
-    Construct a transform from a Euclidean transformation matrix
+    Euclidean transformation matrix에서 transform을 만든다.
     """
     return transform_from_rotation_translation(
         r=quat_from_rotation_matrix(m=euclidean_to_rotation_matrix(transformation_matrix)),
@@ -1386,7 +1153,7 @@ def get_basis_vector(q, v):
 
 
 def get_axis_params(value, axis_idx, x_value=0.0, dtype=float, n_dims=3):
-    """construct arguments to `Vec` according to axis index."""
+    """축 index에 맞춰 `Vec` 인자를 구성한다."""
     zs = np.zeros((n_dims,))
     assert axis_idx < n_dims, "the axis dim should be within the vector dimensions"
     zs[axis_idx] = 1.0
@@ -1403,16 +1170,16 @@ def copysign(a, b):
 
 def get_euler_xyz(q):
     qx, qy, qz, qw = 0, 1, 2, 3
-    # roll (x-axis rotation)
+    # roll(x축 회전)
     sinr_cosp = 2.0 * (q[:, qw] * q[:, qx] + q[:, qy] * q[:, qz])
     cosr_cosp = q[:, qw] * q[:, qw] - q[:, qx] * q[:, qx] - q[:, qy] * q[:, qy] + q[:, qz] * q[:, qz]
     roll = torch.atan2(sinr_cosp, cosr_cosp)
 
-    # pitch (y-axis rotation)
+    # pitch(y축 회전)
     sinp = 2.0 * (q[:, qw] * q[:, qy] - q[:, qz] * q[:, qx])
     pitch = torch.where(torch.abs(sinp) >= 1, copysign(np.pi / 2.0, sinp), torch.asin(sinp))
 
-    # yaw (z-axis rotation)
+    # yaw(z축 회전)
     siny_cosp = 2.0 * (q[:, qw] * q[:, qz] + q[:, qx] * q[:, qy])
     cosy_cosp = q[:, qw] * q[:, qw] + q[:, qx] * q[:, qx] - q[:, qy] * q[:, qy] - q[:, qz] * q[:, qz]
     yaw = torch.atan2(siny_cosp, cosy_cosp)
@@ -1465,8 +1232,8 @@ def unscale_np(x, lower, upper):
 
 def quat_to_angle_axis(q):
     # type: (Tensor) -> Tuple[Tensor, Tensor]
-    # computes axis-angle representation from quaternion q
-    # q must be normalized
+    # quaternion q에서 axis-angle 표현을 계산한다.
+    # q는 정규화되어 있어야 한다.
     min_theta = 1e-5
     qx, qy, qz, qw = 0, 1, 2, 3
 
@@ -1488,7 +1255,7 @@ def quat_to_angle_axis(q):
 
 def angle_axis_to_exp_map(angle, axis):
     # type: (Tensor, Tensor) -> Tensor
-    # compute exponential map from axis-angle
+    # axis-angle에서 exponential map을 계산한다.
     angle_expand = angle.unsqueeze(-1)
     exp_map = angle_expand * axis
     return exp_map
@@ -1496,8 +1263,8 @@ def angle_axis_to_exp_map(angle, axis):
 
 def quat_to_exp_map(q):
     # type: (Tensor) -> Tensor
-    # compute exponential map from quaternion
-    # q must be normalized
+    # quaternion에서 exponential map을 계산한다.
+    # q는 정규화되어 있어야 한다.
     angle, axis = quat_to_angle_axis(q)
     exp_map = angle_axis_to_exp_map(angle, axis)
     return exp_map
@@ -1505,7 +1272,7 @@ def quat_to_exp_map(q):
 
 def quat_to_tan_norm(q):
     # type: (Tensor) -> Tensor
-    # represents a rotation using the tangent and normal vectors
+    # 회전을 tangent와 normal vector로 표현한다.
     ref_tan = torch.zeros_like(q[..., 0:3])
     ref_tan[..., 0] = 1
     tan = quat_rotate(q, ref_tan)
@@ -1576,9 +1343,9 @@ def slerp(q0, q1, t):
 
 def calc_heading_vec(q, head_ind=0):
     # type: (Tensor, int) -> Tensor
-    # calculate heading direction from quaternion
-    # the heading is the direction vector
-    # q must be normalized
+    # quaternion에서 heading 방향을 계산한다.
+    # heading은 방향 vector이다.
+    # q는 정규화되어 있어야 한다.
     ref_dir = torch.zeros_like(q[..., 0:3])
     ref_dir[..., head_ind] = 1
     rot_dir = quat_rotate(q, ref_dir)
@@ -1588,9 +1355,9 @@ def calc_heading_vec(q, head_ind=0):
 
 def calc_heading(q, head_ind=0, gravity_axis="z"):
     # type: (Tensor, int, str) -> Tensor
-    # calculate heading direction from quaternion
-    # the heading is the direction on the xy plane
-    # q must be normalized
+    # quaternion에서 heading 방향을 계산한다.
+    # heading은 xy 평면의 방향이다.
+    # q는 정규화되어 있어야 한다.
     ref_dir = torch.zeros_like(q[..., 0:3])
     ref_dir[..., head_ind] = 1
     # ref_dir[..., 0] = 1
@@ -1610,9 +1377,9 @@ def calc_heading(q, head_ind=0, gravity_axis="z"):
 
 def calc_heading_quat(q, head_ind=0, gravity_axis="z"):
     # type: (Tensor, int, str) -> Tensor
-    # calculate heading rotation from quaternion
-    # the heading is the direction on the xy plane
-    # q must be normalized
+    # quaternion에서 heading 회전을 계산한다.
+    # heading은 xy 평면의 방향이다.
+    # q는 정규화되어 있어야 한다.
     heading = calc_heading(q, head_ind, gravity_axis=gravity_axis)
     axis = torch.zeros_like(q[..., 0:3])
     if gravity_axis == "z":
@@ -1629,9 +1396,9 @@ def calc_heading_quat(q, head_ind=0, gravity_axis="z"):
 
 def calc_heading_quat_inv(q, head_ind=0):
     # type: (Tensor, int) -> Tensor
-    # calculate heading rotation from quaternion
-    # the heading is the direction on the xy plane
-    # q must be normalized
+    # quaternion에서 heading 역회전을 계산한다.
+    # heading은 xy 평면의 방향이다.
+    # q는 정규화되어 있어야 한다.
     heading = calc_heading(q, head_ind)
     axis = torch.zeros_like(q[..., 0:3])
     axis[..., 2] = 1
@@ -1641,12 +1408,7 @@ def calc_heading_quat_inv(q, head_ind=0):
 
 
 def forward_kinematics(mat, parent):
-    """_summary_
-
-    Args:
-        mat ([..., N, 3, 3]): _description_
-        parent (): _description_
-    """
+    """local matrix와 parent index로 forward kinematics를 계산한다."""
     if isinstance(mat, torch.Tensor):
         rotations = torch.eye(mat.shape[-1], device=mat.device)
         rotations = rotations.repeat(mat.shape[:-2] + (1, 1))
@@ -1656,7 +1418,7 @@ def forward_kinematics(mat, parent):
     for i in range(mat.shape[-3]):
         if parent[i] != -1:
             if isinstance(mat, torch.Tensor):
-                # this way make gradient flow
+                # gradient가 흐르도록 새 tensor를 조합한다.
                 new_mat = get_mat_BfromA(rotations[..., parent[i], :, :], mat[..., i, :, :])
                 rotations = torch.cat(
                     (
@@ -1670,7 +1432,7 @@ def forward_kinematics(mat, parent):
                 rotations[..., i, :, :] = get_mat_BfromA(rotations[..., parent[i], :, :], mat[..., i, :, :])
         else:
             if isinstance(mat, torch.Tensor):
-                # this way make gradient flow
+                # gradient가 흐르도록 새 tensor를 조합한다.
                 rotations = torch.cat((mat[..., : i + 1, :, :], rotations[..., i + 1 :, :, :]), dim=-3)
             else:
                 rotations[..., i, :, :] = mat[..., i, :, :]

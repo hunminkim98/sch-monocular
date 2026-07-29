@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 def zero_module(module):
     """
-    Zero out the parameters of a module and return it.
+    module의 parameter를 0으로 만들고 반환한다.
     """
     for p in module.parameters():
         p.detach().zero_()

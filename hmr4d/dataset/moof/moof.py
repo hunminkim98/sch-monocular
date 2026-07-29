@@ -47,7 +47,7 @@ class MOOFEvalDataset(data.Dataset):
         data["K_fullimg"] = K_fullimg[None].repeat(length, 1, 1)
 
         bbx_xyxy = label["bbx_xyxy"]
-        # use tight bounding box for 2d evaluation with scale simply as max of height and width
+        # 2D 평가에는 height와 width 중 큰 값을 scale로 삼은 tight bounding box를 사용합니다.
         pck_bbox_center = (bbx_xyxy[:, 2:4] + bbx_xyxy[:, 0:2]) / 2.0
         pck_bbox_scale, _ = (bbx_xyxy[:, 2:4] - bbx_xyxy[:, 0:2]).max(dim=-1, keepdim=True)
         data["pck_bbox_center"] = pck_bbox_center

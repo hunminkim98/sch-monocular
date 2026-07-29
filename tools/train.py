@@ -12,17 +12,17 @@ from hmr4d.utils.net_utils import load_pretrained_model, get_resume_ckpt_path
 
 
 def get_callbacks(cfg: DictConfig) -> list:
-    """Parse and instantiate all the callbacks in the config."""
+    """설정에 정의된 callback을 해석하고 모두 생성합니다."""
     if not hasattr(cfg, "callbacks") or cfg.callbacks is None:
         return None
-    # Handle special callbacks
+    # 특수 callback을 처리합니다.
     enable_checkpointing = cfg.pl_trainer.get("enable_checkpointing", True)
-    # Instantiate all the callbacks
+    # 모든 callback을 생성합니다.
     callbacks = []
     for callback in cfg.callbacks.values():
         if callback is not None:
             cb = hydra.utils.instantiate(callback, _recursive_=False)
-            # skip when disable checkpointing and the callback is Checkpoint
+            # checkpointing이 비활성화된 경우 Checkpoint callback을 건너뜁니다.
             if not enable_checkpointing and isinstance(cb, Checkpoint):
                 continue
             else:
@@ -31,19 +31,19 @@ def get_callbacks(cfg: DictConfig) -> list:
 
 
 def train(cfg: DictConfig) -> None:
-    """Train/Test"""
+    """학습 또는 평가를 실행합니다."""
     Log.info(f"[Exp Name]: {cfg.exp_name}")
     if cfg.task == "fit":
         Log.info(f"[GPU x Batch] = {cfg.pl_trainer.devices} x {cfg.data.loader_opts.train.batch_size}")
     # pl.seed_everything(cfg.seed)
 
-    # preparation
+    # 실행 준비
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.data, _recursive_=False)
     model: pl.LightningModule = hydra.utils.instantiate(cfg.model, _recursive_=False)
     if cfg.ckpt_path is not None:
         load_pretrained_model(model, cfg.ckpt_path)
 
-    # PL callbacks and logger
+    # PyTorch Lightning callback과 logger를 준비합니다.
     callbacks = get_callbacks(cfg)
     has_ckpt_cb = any([isinstance(cb, Checkpoint) for cb in callbacks])
     if not has_ckpt_cb and cfg.pl_trainer.get("enable_checkpointing", True):
@@ -53,12 +53,12 @@ def train(cfg: DictConfig) -> None:
     logger = hydra.utils.instantiate(cfg.logger, _recursive_=False)
     exp_loggers.append(logger)
 
-    # wandb logging
+    # W&B logging을 설정합니다.
     USE_WANDB = True
     if USE_WANDB and "DEBUG" not in cfg.exp_name:
-        # shorten wandb run name
+        # W&B run 이름을 줄입니다.
         run_name = cfg.exp_name[2:].split("_")
-        run_name = "_".join(run_name[:1] + run_name[2:])  # remove H-M-S
+        run_name = "_".join(run_name[:1] + run_name[2:])  # 시-분-초를 제거합니다.
         wandb_logger = WandbLogger(
             project="footmr",
             name=run_name,
@@ -66,7 +66,7 @@ def train(cfg: DictConfig) -> None:
         )
         exp_loggers.append(wandb_logger)
 
-    # PL-Trainer
+    # PyTorch Lightning Trainer를 생성합니다.
     if cfg.task == "test":
         Log.info("Test mode forces full-precision.")
         cfg.pl_trainer = {**cfg.pl_trainer, "precision": 32}

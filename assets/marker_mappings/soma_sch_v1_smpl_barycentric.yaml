@@ -1,0 +1,730 @@
+meta:
+  name: SOMA SCH v1
+  coordinate_source: SMPL
+  status: work_in_progress
+  notes:
+  - Manual SOMA vertex mapping for SCH/OpenSim markers.
+  - Marker subset selection for Scale/IK should happen downstream.
+  conversion: SOMA-X assets/SMPL/SOMA_wrap.obj to assets/SMPL/base_body.obj
+  recommended_usage: For each frame, marker = sum_i barycentric_weights[i] * smpl_vertices[smpl_face_vertices[i]].
+markers:
+  STN:
+    kind: barycentric
+    source_soma_vertex_index: 92
+    smpl_face_index: 12346
+    smpl_face_vertices:
+    - 3171
+    - 3169
+    - 6502
+    barycentric_weights:
+    - 0.8974891330553514
+    - 0.0973529743463437
+    - 0.0051578925983049185
+    smpl_nearest_vertex_index: 3171
+    closest_point_distance_m: 2.9673462307202144e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  C7:
+    kind: barycentric
+    source_soma_vertex_index: 64
+    smpl_face_index: 12927
+    smpl_face_vertices:
+    - 828
+    - 3470
+    - 4315
+    barycentric_weights:
+    - 0.8374581396790324
+    - 0.15434129854000572
+    - 0.008200561780961936
+    smpl_nearest_vertex_index: 828
+    closest_point_distance_m: 3.226914004375365e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  RAC:
+    kind: barycentric
+    source_soma_vertex_index: 3759
+    smpl_face_index: 9210
+    smpl_face_vertices:
+    - 5342
+    - 5325
+    - 5285
+    barycentric_weights:
+    - 0.2689452487667564
+    - 0.5954640359140638
+    - 0.1355907153191798
+    smpl_nearest_vertex_index: 5325
+    closest_point_distance_m: 1.0016360638010585e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  LAC:
+    kind: barycentric
+    source_soma_vertex_index: 1555
+    smpl_face_index: 2321
+    smpl_face_vertices:
+    - 1822
+    - 1862
+    - 1881
+    barycentric_weights:
+    - 0.13128485944113777
+    - 0.5936224551348691
+    - 0.2750926854239931
+    smpl_nearest_vertex_index: 1862
+    closest_point_distance_m: 6.748280628005412e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  RIC:
+    kind: barycentric
+    source_soma_vertex_index: 3698
+    smpl_face_index: 12228
+    smpl_face_vertices:
+    - 5259
+    - 6378
+    - 5257
+    barycentric_weights:
+    - 0.5887831632987035
+    - 0.02487622849629895
+    - 0.3863406082049975
+    smpl_nearest_vertex_index: 5259
+    closest_point_distance_m: 3.2923711626020966e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_ASIS:
+    kind: barycentric
+    source_soma_vertex_index: 3799
+    smpl_face_index: 8635
+    smpl_face_vertices:
+    - 4353
+    - 4984
+    - 4983
+    barycentric_weights:
+    - 0.06732198630414188
+    - 0.1888742729808709
+    - 0.7438037407149872
+    smpl_nearest_vertex_index: 4983
+    closest_point_distance_m: 2.790443406636511e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_PSIS:
+    kind: barycentric
+    source_soma_vertex_index: 3797
+    smpl_face_index: 12294
+    smpl_face_vertices:
+    - 6523
+    - 6522
+    - 4328
+    barycentric_weights:
+    - 0.039690892899510936
+    - 0.9318546337797801
+    - 0.028454473320709002
+    smpl_nearest_vertex_index: 6522
+    closest_point_distance_m: 1.329789104416593e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  LIC:
+    kind: barycentric
+    source_soma_vertex_index: 1494
+    smpl_face_index: 5340
+    smpl_face_vertices:
+    - 1795
+    - 1793
+    - 2919
+    barycentric_weights:
+    - 0.5863739495465345
+    - 0.38385363879938433
+    - 0.02977241165408121
+    smpl_nearest_vertex_index: 1795
+    closest_point_distance_m: 8.342827196258335e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_ASIS:
+    kind: barycentric
+    source_soma_vertex_index: 1595
+    smpl_face_index: 1748
+    smpl_face_vertices:
+    - 1511
+    - 1513
+    - 869
+    barycentric_weights:
+    - 0.7401128215689171
+    - 0.18853604442655947
+    - 0.07135113400452339
+    smpl_nearest_vertex_index: 1511
+    closest_point_distance_m: 5.86194115038531e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_PSIS:
+    kind: barycentric
+    source_soma_vertex_index: 1593
+    smpl_face_index: 5406
+    smpl_face_vertices:
+    - 3098
+    - 842
+    - 3099
+    barycentric_weights:
+    - 0.04039195627830239
+    - 0.028132280453353545
+    - 0.931475763268344
+    smpl_nearest_vertex_index: 3099
+    closest_point_distance_m: 4.9490884239026145e-08
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_FLE:
+    kind: barycentric
+    source_soma_vertex_index: 11433
+    smpl_face_index: 8054
+    smpl_face_vertices:
+    - 4497
+    - 4495
+    - 4498
+    barycentric_weights:
+    - 0.04060796867122096
+    - 0.6404167541794585
+    - 0.3189752771493205
+    smpl_nearest_vertex_index: 4495
+    closest_point_distance_m: 4.1971354349812904e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_FME:
+    kind: barycentric
+    source_soma_vertex_index: 16996
+    smpl_face_index: 8198
+    smpl_face_vertices:
+    - 4634
+    - 4544
+    - 4500
+    barycentric_weights:
+    - 0.40268433916991897
+    - 0.33569180842798013
+    - 0.26162385240210095
+    smpl_nearest_vertex_index: 4500
+    closest_point_distance_m: 9.9668979665868e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_TT:
+    kind: barycentric
+    source_soma_vertex_index: 17070
+    smpl_face_index: 8200
+    smpl_face_vertices:
+    - 4661
+    - 4662
+    - 4663
+    barycentric_weights:
+    - 0.40797961227778334
+    - 0.16226394500206914
+    - 0.42975644272014757
+    smpl_nearest_vertex_index: 4663
+    closest_point_distance_m: 2.669938137916918e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_FH:
+    kind: barycentric
+    source_soma_vertex_index: 11506
+    smpl_face_index: 12133
+    smpl_face_vertices:
+    - 4553
+    - 4569
+    - 4556
+    barycentric_weights:
+    - 0.07935280509475995
+    - 0.4174309344841683
+    - 0.5032162604210718
+    smpl_nearest_vertex_index: 4556
+    closest_point_distance_m: 6.542858608860188e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_HEEL:
+    kind: barycentric
+    source_soma_vertex_index: 12155
+    smpl_face_index: 12703
+    smpl_face_vertices:
+    - 6782
+    - 6786
+    - 6787
+    barycentric_weights:
+    - 0.376550391021002
+    - 0.2941796872367952
+    - 0.32926992174220276
+    smpl_nearest_vertex_index: 6787
+    closest_point_distance_m: 1.3410425181454466e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_LM:
+    kind: barycentric
+    source_soma_vertex_index: 12149
+    smpl_face_index: 12915
+    smpl_face_vertices:
+    - 6607
+    - 6728
+    - 6608
+    barycentric_weights:
+    - 0.10100465098101835
+    - 0.5911695933554098
+    - 0.3078257556635719
+    smpl_nearest_vertex_index: 6728
+    closest_point_distance_m: 3.4507221606474995e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_MM:
+    kind: barycentric
+    source_soma_vertex_index: 17399
+    smpl_face_index: 12905
+    smpl_face_vertices:
+    - 6833
+    - 6599
+    - 6832
+    barycentric_weights:
+    - 0.46324832186210985
+    - 0.0026562236846131683
+    - 0.534095454453277
+    smpl_nearest_vertex_index: 6832
+    closest_point_distance_m: 4.947796699069068e-09
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_MH5:
+    kind: barycentric
+    source_soma_vertex_index: 12923
+    smpl_face_index: 12589
+    smpl_face_vertices:
+    - 6680
+    - 6718
+    - 6715
+    barycentric_weights:
+    - 0.5008135640459763
+    - 0.19069550569042304
+    - 0.3084909302636006
+    smpl_nearest_vertex_index: 6680
+    closest_point_distance_m: 3.166207920840938e-05
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_MH1:
+    kind: barycentric
+    source_soma_vertex_index: 17628
+    smpl_face_index: 12898
+    smpl_face_vertices:
+    - 6750
+    - 6736
+    - 6694
+    barycentric_weights:
+    - 0.09500269366177272
+    - 0.32209196023240005
+    - 0.5829053461058272
+    smpl_nearest_vertex_index: 6694
+    closest_point_distance_m: 0.0009474302091750054
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_TOE:
+    kind: barycentric
+    source_soma_vertex_index: 17846
+    smpl_face_index: 12415
+    smpl_face_vertices:
+    - 6646
+    - 6647
+    - 6648
+    barycentric_weights:
+    - 0.3015603436479354
+    - 0.13508092165058339
+    - 0.5633587347014812
+    smpl_nearest_vertex_index: 6648
+    closest_point_distance_m: 0.0008239130068281174
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_FLE:
+    kind: barycentric
+    source_soma_vertex_index: 6968
+    smpl_face_index: 1165
+    smpl_face_vertices:
+    - 1012
+    - 1010
+    - 1011
+    barycentric_weights:
+    - 0.3163843624978353
+    - 0.6408119354507605
+    - 0.04280370205140417
+    smpl_nearest_vertex_index: 1010
+    closest_point_distance_m: 3.140465194153209e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_FME:
+    kind: barycentric
+    source_soma_vertex_index: 14734
+    smpl_face_index: 1309
+    smpl_face_vertices:
+    - 1016
+    - 1058
+    - 1148
+    barycentric_weights:
+    - 0.26268584111155135
+    - 0.33686239500736564
+    - 0.40045176388108294
+    smpl_nearest_vertex_index: 1016
+    closest_point_distance_m: 8.15877728218044e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_TT:
+    kind: barycentric
+    source_soma_vertex_index: 14808
+    smpl_face_index: 1311
+    smpl_face_vertices:
+    - 1176
+    - 1177
+    - 1175
+    barycentric_weights:
+    - 0.434127076323864
+    - 0.16055363836365186
+    - 0.4053192853124841
+    smpl_nearest_vertex_index: 1176
+    closest_point_distance_m: 2.720511829450223e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_FH:
+    kind: barycentric
+    source_soma_vertex_index: 7041
+    smpl_face_index: 5245
+    smpl_face_vertices:
+    - 1067
+    - 1070
+    - 1085
+    barycentric_weights:
+    - 0.07813574065316059
+    - 0.5047902577441628
+    - 0.41707400160267666
+    smpl_nearest_vertex_index: 1070
+    closest_point_distance_m: 2.714048418989007e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_HEEL:
+    kind: barycentric
+    source_soma_vertex_index: 7690
+    smpl_face_index: 5815
+    smpl_face_vertices:
+    - 3387
+    - 3382
+    - 3386
+    barycentric_weights:
+    - 0.29902450687920323
+    - 0.38242195524547684
+    - 0.3185535378753199
+    smpl_nearest_vertex_index: 3386
+    closest_point_distance_m: 1.0673394200436245e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_LM:
+    kind: barycentric
+    source_soma_vertex_index: 7684
+    smpl_face_index: 6028
+    smpl_face_vertices:
+    - 3208
+    - 3327
+    - 3207
+    barycentric_weights:
+    - 0.31721252967008673
+    - 0.6040858293333948
+    - 0.07870164099651844
+    smpl_nearest_vertex_index: 3327
+    closest_point_distance_m: 2.5704335288100216e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_MM:
+    kind: barycentric
+    source_soma_vertex_index: 15137
+    smpl_face_index: 6016
+    smpl_face_vertices:
+    - 3432
+    - 3199
+    - 3433
+    barycentric_weights:
+    - 0.5345329984670586
+    - 0.001351996429611499
+    - 0.46411500510332987
+    smpl_nearest_vertex_index: 3432
+    closest_point_distance_m: 4.6700928508017324e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_MH5:
+    kind: barycentric
+    source_soma_vertex_index: 8458
+    smpl_face_index: 5700
+    smpl_face_vertices:
+    - 3316
+    - 3318
+    - 3282
+    barycentric_weights:
+    - 0.300670555968281
+    - 0.201191133238798
+    - 0.498138310792921
+    smpl_nearest_vertex_index: 3282
+    closest_point_distance_m: 7.427432639986081e-05
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_MH1:
+    kind: barycentric
+    source_soma_vertex_index: 15366
+    smpl_face_index: 6011
+    smpl_face_vertices:
+    - 3294
+    - 3336
+    - 3350
+    barycentric_weights:
+    - 0.5848526584766717
+    - 0.32242991678060273
+    - 0.09271742474272564
+    smpl_nearest_vertex_index: 3294
+    closest_point_distance_m: 0.0007605616009408626
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_TOE:
+    kind: barycentric
+    source_soma_vertex_index: 15584
+    smpl_face_index: 5526
+    smpl_face_vertices:
+    - 3247
+    - 3248
+    - 3244
+    barycentric_weights:
+    - 0.5582893765084613
+    - 0.13664099864937707
+    - 0.30506962484216155
+    smpl_nearest_vertex_index: 3247
+    closest_point_distance_m: 0.0007894307321674753
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_HLE:
+    kind: barycentric
+    source_soma_vertex_index: 3899
+    smpl_face_index: 8762
+    smpl_face_vertices:
+    - 5087
+    - 5124
+    - 5135
+    barycentric_weights:
+    - 0.0375147264245852
+    - 0.19887637176718553
+    - 0.7636089018082293
+    smpl_nearest_vertex_index: 5135
+    closest_point_distance_m: 1.03635398284447e-05
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_HME:
+    kind: barycentric
+    source_soma_vertex_index: 10928
+    smpl_face_index: 8848
+    smpl_face_vertices:
+    - 5192
+    - 5131
+    - 5194
+    barycentric_weights:
+    - 0.484532798198755
+    - 0.34598985520623593
+    - 0.16947734659500907
+    smpl_nearest_vertex_index: 5192
+    closest_point_distance_m: 1.1311429705073303e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_DT:
+    kind: barycentric
+    source_soma_vertex_index: 3727
+    smpl_face_index: 11131
+    smpl_face_vertices:
+    - 6283
+    - 4850
+    - 6282
+    barycentric_weights:
+    - 0.2292795949664015
+    - 0.26808755915462873
+    - 0.5026328458789697
+    smpl_nearest_vertex_index: 6282
+    closest_point_distance_m: 3.326037460202548e-05
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_HLE:
+    kind: barycentric
+    source_soma_vertex_index: 6368
+    smpl_face_index: 1873
+    smpl_face_vertices:
+    - 1666
+    - 1655
+    - 1618
+    barycentric_weights:
+    - 0.10796410366890327
+    - 0.8124971198018162
+    - 0.07953877652928057
+    smpl_nearest_vertex_index: 1655
+    closest_point_distance_m: 9.901257429891611e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_HME:
+    kind: barycentric
+    source_soma_vertex_index: 6463
+    smpl_face_index: 1959
+    smpl_face_vertices:
+    - 1725
+    - 1661
+    - 1723
+    barycentric_weights:
+    - 0.17502857456925897
+    - 0.3465409071898703
+    - 0.47843051824087074
+    smpl_nearest_vertex_index: 1723
+    closest_point_distance_m: 8.083837526994209e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_DT:
+    kind: barycentric
+    source_soma_vertex_index: 6215
+    smpl_face_index: 4226
+    smpl_face_vertices:
+    - 2821
+    - 1311
+    - 1315
+    barycentric_weights:
+    - 0.7143609451592569
+    - 0.14070800145904688
+    - 0.1449310533816962
+    smpl_nearest_vertex_index: 2821
+    closest_point_distance_m: 3.62848480605957e-05
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_Radius:
+    kind: barycentric
+    source_soma_vertex_index: 11078
+    smpl_face_index: 9678
+    smpl_face_vertices:
+    - 5573
+    - 5570
+    - 5384
+    barycentric_weights:
+    - 0.46256351324975475
+    - 0.2926689225786258
+    - 0.24476756417161935
+    smpl_nearest_vertex_index: 5573
+    closest_point_distance_m: 5.187730936605083e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_Ulna:
+    kind: barycentric
+    source_soma_vertex_index: 11236
+    smpl_face_index: 9670
+    smpl_face_vertices:
+    - 5567
+    - 5404
+    - 5568
+    barycentric_weights:
+    - 0.2655851390766193
+    - 0.5066190051570334
+    - 0.2277958557663473
+    smpl_nearest_vertex_index: 5404
+    closest_point_distance_m: 4.850483584429852e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_OC:
+    kind: barycentric
+    source_soma_vertex_index: 10987
+    smpl_face_index: 9321
+    smpl_face_vertices:
+    - 5113
+    - 5205
+    - 5202
+    barycentric_weights:
+    - 0.15557983485078175
+    - 0.6981580653658066
+    - 0.14626209978341165
+    smpl_nearest_vertex_index: 5205
+    closest_point_distance_m: 5.242268657457557e-06
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_FAMid:
+    kind: barycentric
+    source_soma_vertex_index: 16783
+    smpl_face_index: 11338
+    smpl_face_vertices:
+    - 5060
+    - 5016
+    - 5069
+    barycentric_weights:
+    - 0.04126817793423532
+    - 0.1367525144345937
+    - 0.821979307631171
+    smpl_nearest_vertex_index: 5069
+    closest_point_distance_m: 7.125714418255377e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_Radius:
+    kind: barycentric
+    source_soma_vertex_index: 6613
+    smpl_face_index: 2790
+    smpl_face_vertices:
+    - 2112
+    - 1924
+    - 2109
+    barycentric_weights:
+    - 0.46081685728722704
+    - 0.24376239857909784
+    - 0.2954207441336751
+    smpl_nearest_vertex_index: 2112
+    closest_point_distance_m: 6.171554081661575e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_Ulna:
+    kind: barycentric
+    source_soma_vertex_index: 6771
+    smpl_face_index: 2783
+    smpl_face_vertices:
+    - 2108
+    - 1943
+    - 2106
+    barycentric_weights:
+    - 0.22742593422057655
+    - 0.5073858499352643
+    - 0.2651882158441592
+    smpl_nearest_vertex_index: 1943
+    closest_point_distance_m: 2.5528650457036613e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_OC:
+    kind: barycentric
+    source_soma_vertex_index: 14506
+    smpl_face_index: 4941
+    smpl_face_vertices:
+    - 1657
+    - 1736
+    - 1658
+    barycentric_weights:
+    - 0.35605682607727135
+    - 0.5339092922908528
+    - 0.11003388163187583
+    smpl_nearest_vertex_index: 1736
+    closest_point_distance_m: 0.0012899565233536485
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_FAMid:
+    kind: barycentric
+    source_soma_vertex_index: 6504
+    smpl_face_index: 4449
+    smpl_face_vertices:
+    - 1602
+    - 1549
+    - 1591
+    barycentric_weights:
+    - 0.21683644981225234
+    - 0.7691769129436363
+    - 0.013986637244111333
+    smpl_nearest_vertex_index: 1549
+    closest_point_distance_m: 8.122512228135467e-08
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_HM2:
+    kind: barycentric
+    source_soma_vertex_index: 3640
+    smpl_face_index: 9523
+    smpl_face_vertices:
+    - 5594
+    - 5595
+    - 5461
+    barycentric_weights:
+    - 0.026477086607112482
+    - 0.8483681416304203
+    - 0.12515477176246723
+    smpl_nearest_vertex_index: 5595
+    closest_point_distance_m: 9.980243607474632e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  R_HM5:
+    kind: barycentric
+    source_soma_vertex_index: 11828
+    smpl_face_index: 10867
+    smpl_face_vertices:
+    - 5655
+    - 5635
+    - 5525
+    barycentric_weights:
+    - 0.3883774102538454
+    - 0.03148716398086343
+    - 0.5801354257652912
+    smpl_nearest_vertex_index: 5525
+    closest_point_distance_m: 6.883673782941502e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_HM2:
+    kind: barycentric
+    source_soma_vertex_index: 7144
+    smpl_face_index: 2636
+    smpl_face_vertices:
+    - 2135
+    - 1998
+    - 2134
+    barycentric_weights:
+    - 0.4668932142766516
+    - 0.28690385790155704
+    - 0.24620292782179137
+    smpl_nearest_vertex_index: 2134
+    closest_point_distance_m: 2.1498787966692053e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.
+  L_HM5:
+    kind: barycentric
+    source_soma_vertex_index: 7363
+    smpl_face_index: 3978
+    smpl_face_vertices:
+    - 2062
+    - 2174
+    - 2193
+    barycentric_weights:
+    - 0.578638671882107
+    - 0.03356831879018822
+    - 0.38779300932770483
+    smpl_nearest_vertex_index: 2062
+    closest_point_distance_m: 3.7758233308665646e-07
+    note: Derived from soma_sch_v1.yaml via SOMA-X SMPL wrap barycentric correspondence.

@@ -23,19 +23,19 @@ import numpy as np
 #     return frame_id_list
 
 
-# From GPT
+# GPT가 생성한 vectorized 구현
 def get_frame_id_list_from_mask(mask):
     # batch=64, 0.13s
     """
-    Vectorized approach to get frame id list from a boolean mask.
+    boolean mask에서 연속된 frame ID list를 vectorized 방식으로 구합니다.
 
-    Args:
-        mask (F,), bool tensor: Mask array where `True` indicates a frame to be processed.
+    인자:
+        mask (F,), bool tensor: True인 위치의 frame을 처리합니다.
 
-    Returns:
-        frame_id_list: List of torch.Tensors, each tensor containing continuous indices where mask is True.
+    반환:
+        frame_id_list: mask가 True인 연속 index를 담은 torch.Tensor list
     """
-    # Find the indices where the mask changes from False to True and vice versa
+    # mask가 False에서 True로, 또는 True에서 False로 바뀌는 index를 찾습니다.
     padded_mask = torch.cat(
         [torch.tensor([False], device=mask.device), mask, torch.tensor([False], device=mask.device)]
     )
@@ -48,7 +48,7 @@ def get_frame_id_list_from_mask(mask):
         starts = starts.reshape(-1)
         ends = ends.reshape(-1)
 
-    # Create list of ranges
+    # 연속 구간 list를 만듭니다.
     frame_id_list = [torch.arange(start, end) for start, end in zip(starts, ends)]
     return frame_id_list
 
@@ -56,16 +56,16 @@ def get_frame_id_list_from_mask(mask):
 def get_batch_frame_id_lists_from_mask_BLC(masks):
     # batch=64, 0.10s
     """
-    处理三维掩码数组，为每个批次和通道提取连续True区段的索引列表。
+    3D mask에서 batch와 channel별로 연속된 True 구간의 index list를 구합니다.
 
-    参数:
-        masks (B, L, C), 布尔张量：每个元素代表一个掩码，True表示需要处理的帧。
+    인자:
+        masks (B, L, C), bool tensor: True인 위치의 frame을 처리합니다.
 
-    返回:
-        batch_frame_id_lists: 对应于每个批次和每个通道的帧id列表的嵌套列表。
+    반환:
+        batch_frame_id_lists: batch와 channel별 frame ID를 담은 중첩 list
     """
     B, L, C = masks.size()
-    # 在序列长度两端添加一个False
+    # sequence 양 끝에 False를 하나씩 추가합니다.
     padded_masks = torch.cat(
         [
             torch.zeros((B, 1, C), dtype=torch.bool, device=masks.device),
@@ -74,18 +74,18 @@ def get_batch_frame_id_lists_from_mask_BLC(masks):
         ],
         dim=1,
     )
-    # 计算差分来找到True区段的起始和结束点
+    # 차분으로 True 구간의 시작점과 끝점을 찾습니다.
     diffs = torch.diff(padded_masks.int(), dim=1)
     starts = (diffs == 1).nonzero(as_tuple=True)
     ends = (diffs == -1).nonzero(as_tuple=True)
 
-    # 初始化返回列表
+    # 반환 list를 초기화합니다.
     batch_frame_id_lists = [[[] for _ in range(C)] for _ in range(B)]
     for b in range(B):
         for c in range(C):
             batch_start = starts[0][(starts[0] == b) & (starts[2] == c)]
             batch_end = ends[0][(ends[0] == b) & (ends[2] == c)]
-            # 确保start和end都是1维张量
+            # start와 end가 모두 1D tensor인지 확인합니다.
             batch_frame_id_lists[b][c] = [
                 torch.arange(start.item(), end.item()) for start, end in zip(batch_start, batch_end)
             ]
@@ -130,8 +130,8 @@ def mask_to_frame_id(mask):
 def linear_interpolate_frame_ids(data, frame_id_list):
     data = data.clone()
     for i, invalid_frame_ids in enumerate(frame_id_list):
-        # interplate between prev, next
-        # if at beginning or end, use the same value
+        # 이전 값과 다음 값 사이를 보간합니다.
+        # 처음 또는 끝 구간이면 가까운 값을 그대로 사용합니다.
         if invalid_frame_ids[0] - 1 < 0 or invalid_frame_ids[-1] + 1 >= len(data):
             if invalid_frame_ids[0] - 1 < 0:
                 data[invalid_frame_ids] = data[invalid_frame_ids[-1] + 1].clone()
@@ -148,9 +148,9 @@ def linear_interpolate_frame_ids(data, frame_id_list):
 
 def linear_interpolate(data, N_middle_frames):
     """
-    Args:
+    인자:
         data: (2, C)
-    Returns:
+    반환:
         data_interpolated: (1+N+1, C)
     """
     prev = data[0]
@@ -162,10 +162,10 @@ def linear_interpolate(data, N_middle_frames):
 
 def find_top_k_span(mask, k=3):
     """
-    Args:
+    인자:
         mask: (L,)
-    Return:
-        topk_span: List of tuple, usage: [start, end)
+    반환:
+        topk_span: [start, end) 형식의 tuple list
     """
     if isinstance(mask, np.ndarray):
         mask = torch.from_numpy(mask)

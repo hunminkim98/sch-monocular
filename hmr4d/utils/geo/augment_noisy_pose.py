@@ -11,9 +11,10 @@ COCO23_TREE = [[5, 6], 0, 0, 1, 2, -1, -1, 5, 6, 7, 8, -1, -1, 11, 12, 13, 14, 1
 
 def gaussian_augment(body_pose, std_angle=10.0, to_R=True):
     """
-    Args:
-        body_pose torch.Tensor: (..., J, 3) axis-angle if to_R is True, else rotmat (..., J, 3, 3)
-        std_angle: scalar or list, in degree
+    인자:
+        body_pose torch.Tensor: to_R이 True이면 (..., J, 3) axis-angle,
+            아니면 (..., J, 3, 3) rotation matrix
+        std_angle: degree 단위의 scalar 또는 list
     """
 
     body_pose = body_pose.clone()
@@ -25,12 +26,12 @@ def gaussian_augment(body_pose, std_angle=10.0, to_R=True):
     shape = body_pose_R.shape[:-2]
     device = body_pose.device
 
-    # 1. Simulate noise
-    # angle:
-    std_angle = torch.tensor(std_angle).to(device).reshape(-1)  # allow scalar or list
+    # 1. noise를 시뮬레이션합니다.
+    # 회전 각도
+    std_angle = torch.tensor(std_angle).to(device).reshape(-1)  # scalar와 list를 모두 허용합니다.
     noise_angle = torch.randn(shape, device=device) * std_angle * torch.pi / 180
 
-    # axis: avoid zero vector
+    # axis: zero vector를 방지합니다.
     noise_axis = torch.rand((*shape, 3), device=device)
     mask_ = torch.norm(noise_axis, dim=-1) < 1e-6
     noise_axis[mask_] = 1
@@ -39,7 +40,7 @@ def gaussian_augment(body_pose, std_angle=10.0, to_R=True):
     noise_aa = noise_angle[..., None] * noise_axis  # (B, L, J, 3)
     noise_R = axis_angle_to_matrix(noise_aa)  # (B, L, J, 3, 3)
 
-    # 2. Add noise to body pose
+    # 2. body pose에 noise를 추가합니다.
     new_body_pose_R = matrix.get_mat_BfromA(body_pose_R, noise_R)  # (B, L, J, 3, 3)
     # new_body_pose_R = torch.matmul(noise_R, body_pose_R)
     new_body_pose_r6d = matrix_to_rotation_6d(new_body_pose_R)  # (B, L, J, 6)
@@ -48,11 +49,11 @@ def gaussian_augment(body_pose, std_angle=10.0, to_R=True):
     return new_body_pose_R, new_body_pose_r6d, new_body_pose_aa
 
 
-# ========= Augment Joint 3D ======== #
+# ========= 3D joint 증강 ======== #
 
 
 def get_jitter(shape=(8, 120), s_jittering=5e-2):
-    """Guassian jitter modeling."""
+    """Gaussian jitter를 모델링합니다."""
     jittering_noise = (
         torch.normal(
             mean=torch.zeros((*shape, 17, 3)),
@@ -72,13 +73,13 @@ def get_jitter_cuda(shape=(8, 120, 17), s_jittering=5e-2):
             foot_pmask = torch.full((1, 1, 6, 1), fill_value, dtype=torch.float32, device="cuda")
             COCO17_AUG_CUDA["jittering"] = torch.cat((COCO17_AUG_CUDA["jittering"], foot_pmask), dim=2)
     jittering = COCO17_AUG_CUDA["jittering"]
-    # random per joint jitter
+    # joint별 무작위 jitter
     jittering_noise = torch.randn((*shape, 3), device="cuda") * jittering * s_jittering
     return jittering_noise
 
 
 def get_lfhp(shape=(8, 120), s_peak=3e-1, s_peak_mask=5e-3):
-    """Low-frequency high-peak noise modeling."""
+    """low-frequency high-peak noise를 모델링합니다."""
 
     def get_peak_noise_mask():
         peak_noise_mask = torch.rand(*shape, 17) * COCO17_AUG["pmask"]
@@ -108,7 +109,7 @@ def get_lfhp_cuda(shape=(8, 120, 17), s_peak=3e-1, s_peak_mask=5e-3):
     pmask = COCO17_AUG_CUDA["pmask"]
     peak = COCO17_AUG_CUDA["peak"]
     peak_noise_mask = torch.rand(*shape, device="cuda") * pmask < s_peak_mask
-    # random per joint large offset
+    # joint별 큰 무작위 offset
     peak_noise = (
         peak_noise_mask.float().unsqueeze(-1).expand(-1, -1, -1, 3) * torch.randn(3, device="cuda") * peak * s_peak
     )
@@ -116,10 +117,10 @@ def get_lfhp_cuda(shape=(8, 120, 17), s_peak=3e-1, s_peak_mask=5e-3):
 
 
 def get_bias(shape=(8, 120), s_bias=1e-1):
-    """Bias noise modeling."""
+    """bias noise를 모델링합니다."""
     b, l = shape
     bias_noise = torch.normal(mean=torch.zeros((b, 17, 3)), std=COCO17_AUG["bias"].reshape(1, 17, 1)) * s_bias
-    bias_noise = bias_noise[:, None].expand(-1, l, -1, -1)  # (B, L, J, 3), the whole sequence is moved by the same bias
+    bias_noise = bias_noise[:, None].expand(-1, l, -1, -1)  # (B, L, J, 3), 전체 sequence에 같은 bias를 적용합니다.
     return bias_noise
 
 
@@ -133,7 +134,7 @@ def get_bias_cuda(shape=(8, 120, 17), s_bias=1e-1):
             COCO17_AUG_CUDA["bias"] = torch.cat((COCO17_AUG_CUDA["bias"], foot_bias), dim=1)
 
     bias = COCO17_AUG_CUDA["bias"]
-    # normally distributed offset (same for whole sequence)
+    # 전체 sequence에 동일한 정규분포 offset을 적용합니다.
     bias_noise = torch.randn((shape[0], shape[2], 3), device="cuda") * bias * s_bias
     bias_noise = bias_noise[:, None].expand(-1, shape[1], -1, -1)
     return bias_noise
@@ -145,9 +146,9 @@ def get_wham_aug_kp3d(shape=(8, 120, 17)):
 
 
 def get_visible_mask(shape=(8, 120, 17), s_mask=0.03):
-    """Mask modeling."""
+    """visibility mask를 모델링합니다."""
     B, L, J = shape
-    # Per-frame and joint
+    # frame 및 joint 단위
     mask = torch.rand(*shape) < s_mask
     visible = (~mask).clone()  # (B, L, 17)
     visible = visible.reshape(-1, shape[2])  # (BL, 17)
@@ -177,7 +178,7 @@ def get_visible_mask(shape=(8, 120, 17), s_mask=0.03):
 
 def get_invisible_legs_mask(shape, s_mask=0.03):
     """
-    Both legs are invisible for a random duration.
+    무작위 구간 동안 양쪽 다리를 보이지 않게 만듭니다.
     """
     B, L, J = shape
     starts = torch.randint(0, L - 90, (B,))
@@ -185,27 +186,27 @@ def get_invisible_legs_mask(shape, s_mask=0.03):
     mask_range = torch.arange(L).unsqueeze(0).expand(B, -1)
     mask_to_apply = (mask_range >= starts.unsqueeze(1)) & (mask_range < ends.unsqueeze(1))
     mask_to_apply = mask_to_apply.unsqueeze(2).expand(-1, -1, J).clone()
-    mask_to_apply[:, :, :11] = False  # only both legs are invisible
+    mask_to_apply[:, :, :11] = False  # 양쪽 다리만 보이지 않게 합니다.
     mask_to_apply = mask_to_apply & (torch.rand(B, 1, 1) < s_mask)
     return mask_to_apply
 
 
 def randomly_occlude_lower_half(i_x2d, s_mask=0.03):
     """
-    Randomly occlude the lower half of the image.
+    image의 아래쪽 절반을 무작위로 가립니다.
     """
     raise NotImplementedError
     B, L, N, _ = i_x2d.shape
     i_x2d = i_x2d.clone()
 
-    # a period of time when the lower half of the image is invisible
+    # image 아래쪽 절반이 보이지 않는 구간을 정합니다.
     starts = torch.randint(0, L - 90, (B,))
     ends = starts + torch.randint(30, 90, (B,))
     mask_range = torch.arange(L).unsqueeze(0).expand(B, -1)
     mask_to_apply = (mask_range >= starts.unsqueeze(1)) & (mask_range < ends.unsqueeze(1))
     mask_to_apply = mask_to_apply.unsqueeze(2).expand(-1, -1, N)  # (B, L, N)
 
-    # only the lower half of the image is invisible
+    # image 아래쪽 절반만 보이지 않게 합니다.
     i_x2d
     i_x2d[..., 1] / 2
 
@@ -218,19 +219,19 @@ def randomly_modify_hands_legs(j3d):
     assert num_joints == 17 or num_joints == 23
     B, L, J, _ = j3d.shape
 
-    body_switch_pairs = [(9, 10), (15, 16)]  # ankle and wrist joints
+    body_switch_pairs = [(9, 10), (15, 16)]  # 발목과 손목 joint
     body_wrong_pairs = [(9, 10), (10, 9), (15, 16), (16, 15)]
     p_switch_body = 0.001
     p_wrong_body_kpt = 0.001
 
-    # switch l/r joints
+    # 왼쪽과 오른쪽 joint를 맞바꿉니다.
     mask = torch.rand((B, L, 2, 1), device=j3d.device) < p_switch_body
     for idx, (j1, j2) in enumerate(body_switch_pairs):
         tmp = j3d[:, :, j1, :].clone()
         j3d[:, :, j1, :] = torch.where(mask[:, :, idx], j3d[:, :, j2, :], j3d[:, :, j1, :])
         j3d[:, :, j2, :] = torch.where(mask[:, :, idx], tmp, j3d[:, :, j2, :])
 
-    # "confuse" left joint with right joint or vice versa
+    # 왼쪽 joint를 오른쪽 joint로, 또는 그 반대로 잘못 인식하게 만듭니다.
     mask = torch.rand((B, L, 4, 1), device=j3d.device) < p_wrong_body_kpt
     for idx, (j1, j2) in enumerate(body_wrong_pairs):
         j3d[:, :, j1, :] = torch.where(mask[:, :, idx], j3d[:, :, j2, :], j3d[:, :, j1, :])
@@ -242,14 +243,14 @@ def randomly_modify_hands_legs(j3d):
         p_switch_foot = 0.001
         p_wrong_foot_kpt = 0.001
 
-        # switch l/r joints
+        # 왼쪽과 오른쪽 joint를 맞바꿉니다.
         mask = torch.rand((B, L, 3, 1), device=j3d.device) < p_switch_foot
         for idx, (j1, j2) in enumerate(foot_switch_pairs):
             tmp = j3d[:, :, j1, :].clone()
             j3d[:, :, j1, :] = torch.where(mask[:, :, idx], j3d[:, :, j2, :], j3d[:, :, j1, :])
             j3d[:, :, j2, :] = torch.where(mask[:, :, idx], tmp, j3d[:, :, j2, :])
 
-        # "confuse" left joint with right joint or vice versa
+        # 왼쪽 joint를 오른쪽 joint로, 또는 그 반대로 잘못 인식하게 만듭니다.
         mask = torch.rand((B, L, 6, 1), device=j3d.device) < p_wrong_foot_kpt
         for idx, (j1, j2) in enumerate(foot_wrong_pairs):
             j3d[:, :, j1, :] = torch.where(mask[:, :, idx], j3d[:, :, j2, :], j3d[:, :, j1, :])

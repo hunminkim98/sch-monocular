@@ -21,7 +21,7 @@ def get_raw_pkl_paths(h36m_raw_root):
     pkl_paths = []
     for train_sub in ["S1", "S5", "S6", "S7", "S8"]:
         for pth in (smpl_param_dir / train_sub).glob("*.pkl"):
-            if "aligned" not in str(pth):  # Use world sequence only
+            if "aligned" not in str(pth):  # world sequence만 사용합니다.
                 pkl_paths.append(str(pth))
 
     return pkl_paths
@@ -29,21 +29,22 @@ def get_raw_pkl_paths(h36m_raw_root):
 
 def get_cam_KRts():
     """
-    Returns:
+    반환:
         Ks (torch.Tensor): {cam_id: 3x3}
         Rts (torch.Tensor): {subj_id: {cam_id: 4x4}}
     """
-    # this file is copied from https://github.com/karfly/human36m-camera-parameters
+    # 이 파일은 아래 원본을 기반으로 합니다.
+    # https://github.com/karfly/human36m-camera-parameters
     cameras_path = RESOURCE_FOLDER / "camera-parameters.json"
     with open(cameras_path, "r") as f:
         cameras = json.load(f)
 
-    # 4 camera ids: '54138969', '55011271', '58860488', '60457274'
+    # camera ID 4개: '54138969', '55011271', '58860488', '60457274'
     Ks = {}
     for cam in cameras["intrinsics"]:
         Ks[cam] = torch.tensor(cameras["intrinsics"][cam]["calibration_matrix"]).float()
 
-    # extrinsics
+    # extrinsic 파라미터
     extrinsics = cameras["extrinsics"]
     Rts = defaultdict(dict)
     for subj in extrinsics:
@@ -58,8 +59,8 @@ def get_cam_KRts():
 
 def parse_raw_pkl(pkl_path, to_50hz=True):
     """
-    raw_pkl @ 200Hz, where video @ 50Hz.
-    the frames should be divided by 4, and mannually align with the video.
+    raw PKL은 200Hz이고 video는 50Hz입니다.
+    frame을 4분의 1로 줄인 뒤 video와 수동으로 정렬해야 합니다.
     """
     with open(str(pkl_path), "rb") as f:
         data = pickle.load(f, encoding="bytes")

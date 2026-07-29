@@ -25,16 +25,16 @@ class CCD_IK:
         target_pos=None,
         target_rot=None,
         kinematic_chain=None,
-        max_iter=2,  # sebas sets 25 but with converged flag, 2 is enough
+        max_iter=2,  # Sebastian은 25로 설정했지만 수렴 판정을 사용하면 2로 충분하다.
         threshold=0.001,
         pos_weight=1.0,
-        rot_weight=0.0,  # this makes optimization unstable, although sebas uses 1.0
+        rot_weight=0.0,  # Sebastian은 1.0을 쓰지만 최적화가 불안정해질 수 있다.
     ):
         if kinematic_chain is None:
             kinematic_chain = range(local_mat.shape[-3])
         global_mat = matrix.forward_kinematics(local_mat, parent)
 
-        # get kinematic chain only local mat and assign root mat (do not modify root during IK)
+        # kinematic chain의 local matrix만 가져오고 IK 중 root를 바꾸지 않도록 root matrix를 지정한다.
         local_mat = local_mat.clone()
         local_mat = local_mat[..., kinematic_chain, :, :]
         local_mat[..., 0, :, :] = global_mat[..., kinematic_chain[0], :, :]
@@ -73,7 +73,7 @@ class CCD_IK:
         for _ in range(self.max_iter):
             # if self.is_converged():
             #     return self.local_mat
-            # do not optimize root, so start from 1
+            # root는 최적화하지 않으므로 1부터 시작한다.
             self.optimize(1)
         return self.local_mat
 
@@ -95,7 +95,7 @@ class CCD_IK:
 
         for target_i, j in enumerate(self.target_ind):
             if i >= j:
-                # do not optimise same joint or child joint of targets
+                # target과 같은 joint 또는 target의 자식 joint는 최적화하지 않는다.
                 continue
             end_pos = matrix.get_position(self.global_mat)[..., j, :]  # (*, 3)
             end_rot = matrix.get_rotation(self.global_mat)[..., j, :, :]  # (*, 3, 3)
@@ -103,7 +103,7 @@ class CCD_IK:
 
             if self.target_pos is not None:
                 target_pos = self.target_pos[..., target_i, :]  # (*, 3)
-                # Solve objective position
+                # 목표 위치를 푼다.
                 solved_pos_target_quat = qslerp(
                     quat,
                     qmul(qbetween(end_pos - pos, target_pos - pos), quat),
@@ -117,11 +117,11 @@ class CCD_IK:
 
             if self.target_q is not None:
                 if target_i < self.target_N - 1:
-                    # multiple rot target makes more unstable, only keep the last one
+                    # 회전 target이 여러 개면 더 불안정하므로 마지막 것만 사용한다.
                     continue
-                # optimize rotation target is not stable
+                # 회전 target 최적화는 안정적이지 않다.
                 target_q = self.target_q[..., target_i, :]  # (*, 4)
-                # Solve objective rotation
+                # 목표 회전을 푼다.
                 solved_q_target_quat = qslerp(
                     quat,
                     qmul(qmul(target_q, qinv(end_quat)), quat),
@@ -136,7 +136,7 @@ class CCD_IK:
             x_vec_avg = matrix.normalize(x_vec_sum / count)
             y_vec_avg = matrix.normalize(y_vec_sum / count)
             z_vec_avg = torch.cross(x_vec_avg, y_vec_avg, dim=-1)
-            solved_rot = torch.stack([x_vec_avg, y_vec_avg, z_vec_avg], dim=-1)  # column
+            solved_rot = torch.stack([x_vec_avg, y_vec_avg, z_vec_avg], dim=-1)  # 열 방향
 
             parent_rot = matrix.get_rotation(self.global_mat)[..., self.parent[i], :, :]
             solved_local_rot = matrix.get_mat_BtoA(parent_rot, solved_rot)

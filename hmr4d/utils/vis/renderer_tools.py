@@ -61,10 +61,10 @@ def smpl_to_geometry(verts, faces, vis_mask=None, track_ids=None):
     """
     :param verts (B, T, V, 3)
     :param faces (F, 3)
-    :param vis_mask (optional) (B, T) visibility of each person
+    :param vis_mask (선택) (B, T), 각 사람의 가시성
     :param track_ids (optional) (B,)
-    returns list of T verts (B, V, 3), faces (F, 3), colors (B, 3)
-    where B is different depending on the visibility of the people
+    T개로 이루어진 verts (B, V, 3), faces (F, 3), colors (B, 3) 목록을 반환한다.
+    여기서 B는 사람의 가시성에 따라 달라진다.
     """
     B, T = verts.shape[:2]
     device = verts.device
@@ -81,13 +81,11 @@ def filter_visible_meshes(verts, colors, faces, vis_mask=None, vis_opacity=False
     :param verts (B, T, V, 3)
     :param colors (B, 3)
     :param faces (F, 3)
-    :param vis_mask (optional tensor, default None) (B, T) ternary mask
-        -1 if not in frame
-         0 if temporarily occluded
-         1 if visible
-    :param vis_opacity (optional bool, default False)
-        if True, make occluded people alpha=0.5, otherwise alpha=1
-    returns a list of T lists verts (Bi, V, 3), colors (Bi, 4), faces (F, 3)
+    :param vis_mask (선택 tensor, 기본값 None) (B, T) 3값 mask
+        -1은 frame 밖, 0은 일시적 가림, 1은 보임을 뜻한다.
+    :param vis_opacity (선택 bool, 기본값 False)
+        True이면 가려진 사람의 alpha를 0.5로, 아니면 1로 둔다.
+    T개로 이루어진 verts (Bi, V, 3), colors (Bi, 4), faces (F, 3) 목록을 반환한다.
     """
     #     import ipdb; ipdb.set_trace()
     B, T = verts.shape[:2]
@@ -97,7 +95,7 @@ def filter_visible_meshes(verts, colors, faces, vis_mask=None, vis_opacity=False
         colors = [colors for t in range(T)]
         return verts, colors, faces
 
-    # render occluded and visible, but not removed
+    # 제거된 대상은 제외하고, 가려진 대상과 보이는 대상을 render한다.
     vis_mask = vis_mask >= 0
     if vis_opacity:
         alpha = 0.5 * (vis_mask[..., None] + 1)
@@ -111,7 +109,7 @@ def filter_visible_meshes(verts, colors, faces, vis_mask=None, vis_opacity=False
 
 def get_bboxes(verts, vis_mask):
     """
-    return bb_min, bb_max, and mean for each track (B, 3) over entire trajectory
+    전체 trajectory에서 각 track의 bb_min, bb_max, mean (B, 3)을 반환한다.
     :param verts (B, T, V, 3)
     :param vis_mask (B, T)
     """
@@ -125,7 +123,7 @@ def get_bboxes(verts, vis_mask):
     bb_min = torch.stack(bb_min, dim=0)
     bb_max = torch.stack(bb_max, dim=0)
     mean = torch.stack(mean, dim=0)
-    # point to a track that's long and close to the camera
+    # 길이가 충분하고 camera에 가까운 track을 선택한다.
     zs = mean[:, 2]
     counts = vis_mask[:, :T].sum(dim=-1)  # (B,)
     mask = counts < 0.8 * T
@@ -193,7 +191,7 @@ def checkerboard_geometry(
                 cur_verts[:, 1] += c2
 
             cur_faces = np.array([[0, 1, 3], [1, 2, 3], [0, 3, 1], [1, 3, 2]], dtype=np.int64)
-            cur_faces += 4 * (i * num_cols + j)  # the number of previously added verts
+            cur_faces += 4 * (i * num_cols + j)  # 앞에서 추가한 vertex 수
             use_color0 = (i % 2 == 0 and j % 2 == 0) or (i % 2 == 1 and j % 2 == 1)
             cur_color = color0 if use_color0 else color1
             cur_colors = np.array([cur_color, cur_color, cur_color, cur_color])
@@ -301,7 +299,7 @@ def vis_keypoints(
         "TopDownOCHumanDataset",
         "AnimalMacaqueDataset",
     ):
-        # show the results
+        # 결과를 표시한다.
         skeleton = [
             [15, 13],
             [13, 11],
@@ -328,7 +326,7 @@ def vis_keypoints(
         pose_kpt_color = palette[[16, 16, 16, 16, 16, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0, 0]]
 
     elif dataset == "TopDownCocoWholeBodyDataset":
-        # show the results
+        # 결과를 표시한다.
         skeleton = [
             [15, 13],
             [13, 11],
@@ -539,7 +537,7 @@ def vis_keypoints(
         pose_kpt_color = palette[[0, 0, 0, 0, 4, 4, 4, 4, 8, 8, 8, 8, 12, 12, 12, 12, 16, 16, 16, 16, 0]]
 
     elif dataset == "Face300WDataset":
-        # show the results
+        # 결과를 표시한다.
         skeleton = []
 
         pose_link_color = palette[[]]
@@ -547,7 +545,7 @@ def vis_keypoints(
         kpt_score_thr = 0
 
     elif dataset == "FaceAFLWDataset":
-        # show the results
+        # 결과를 표시한다.
         skeleton = []
 
         pose_link_color = palette[[]]
@@ -555,7 +553,7 @@ def vis_keypoints(
         kpt_score_thr = 0
 
     elif dataset == "FaceCOFWDataset":
-        # show the results
+        # 결과를 표시한다.
         skeleton = []
 
         pose_link_color = palette[[]]
@@ -563,7 +561,7 @@ def vis_keypoints(
         kpt_score_thr = 0
 
     elif dataset == "FaceWFLWDataset":
-        # show the results
+        # 결과를 표시한다.
         skeleton = []
 
         pose_link_color = palette[[]]
@@ -744,7 +742,7 @@ def imshow_keypoints(
     for kpts in pose_result:
         kpts = np.array(kpts, copy=False)[idcs]
 
-        # draw each point on image
+    # image에 각 point를 그린다.
         if pose_kpt_color is not None:
             assert len(pose_kpt_color) == len(kpts)
             for kid, kpt in enumerate(kpts):
@@ -759,7 +757,7 @@ def imshow_keypoints(
                     else:
                         cv2.circle(img, (int(x_coord), int(y_coord)), radius, color, -1)
 
-        # draw links
+    # 연결선을 그린다.
         if skeleton is not None and pose_link_color is not None:
             assert len(pose_link_color) == len(skeleton)
             for sk_id, sk in enumerate(skeleton):

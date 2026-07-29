@@ -1,8 +1,8 @@
 """
-2D visualization primitives based on Matplotlib.
-1) Plot images with `plot_images`.
-2) Call `plot_keypoints` or `plot_matches` any number of times.
-3) Optionally: save a .png or .pdf plot (nice in papers!) with `save_plot`.
+Matplotlib 기반의 2D 시각화 도구입니다.
+1) ``plot_images``로 image를 그립니다.
+2) ``plot_keypoints`` 또는 ``plot_matches``를 필요한 만큼 호출합니다.
+3) 필요하면 ``save_plot``으로 .png 또는 .pdf를 저장합니다.
 """
 
 import matplotlib
@@ -13,14 +13,14 @@ import torch
 
 
 def cm_RdGn(x):
-    """Custom colormap: red (0) -> yellow (0.5) -> green (1)."""
+    """red(0) -> yellow(0.5) -> green(1) custom colormap을 만듭니다."""
     x = np.clip(x, 0, 1)[..., None] * 2
     c = x * np.array([[0, 1.0, 0]]) + (2 - x) * np.array([[1.0, 0, 0]])
     return np.clip(c, 0, 1)
 
 
 def cm_BlRdGn(x_):
-    """Custom colormap: blue (-1) -> red (0.0) -> green (1)."""
+    """blue(-1) -> red(0.0) -> green(1) custom colormap을 만듭니다."""
     x = np.clip(x_, 0, 1)[..., None] * 2
     c = x * np.array([[0, 1.0, 0, 1.0]]) + (2 - x) * np.array([[1.0, 0, 0, 1.0]])
 
@@ -31,7 +31,7 @@ def cm_BlRdGn(x_):
 
 
 def cm_prune(x_):
-    """Custom colormap to visualize pruning"""
+    """pruning 시각화용 custom colormap을 만듭니다."""
     if isinstance(x_, torch.Tensor):
         x_ = x_.cpu().numpy()
     max_i = max(x_)
@@ -40,14 +40,15 @@ def cm_prune(x_):
 
 
 def plot_images(imgs, titles=None, cmaps="gray", dpi=100, pad=0.5, adaptive=True):
-    """Plot a set of images horizontally.
-    Args:
-        imgs: list of NumPy RGB (H, W, 3) or PyTorch RGB (3, H, W) or mono (H, W).
-        titles: a list of strings, as titles for each image.
-        cmaps: colormaps for monochrome images.
-        adaptive: whether the figure size should fit the image aspect ratios.
+    """여러 image를 가로로 배치해 그립니다.
+
+    인자:
+        imgs: NumPy RGB (H, W, 3), PyTorch RGB (3, H, W) 또는 mono (H, W)의 list
+        titles: 각 image의 title string list
+        cmaps: monochrome image용 colormap
+        adaptive: figure 크기를 image aspect ratio에 맞출지 여부
     """
-    # conversion to (H, W, 3) for torch.Tensor
+    # torch.Tensor를 (H, W, 3) 형식으로 변환합니다.
     imgs = [
         img.permute(1, 2, 0).cpu().numpy() if (isinstance(img, torch.Tensor) and img.dim() == 3) else img
         for img in imgs
@@ -70,7 +71,7 @@ def plot_images(imgs, titles=None, cmaps="gray", dpi=100, pad=0.5, adaptive=True
         ax[i].get_yaxis().set_ticks([])
         ax[i].get_xaxis().set_ticks([])
         ax[i].set_axis_off()
-        for spine in ax[i].spines.values():  # remove frame
+        for spine in ax[i].spines.values():  # frame 테두리를 제거합니다.
             spine.set_visible(False)
         if titles:
             ax[i].set_title(titles[i])
@@ -78,11 +79,12 @@ def plot_images(imgs, titles=None, cmaps="gray", dpi=100, pad=0.5, adaptive=True
 
 
 def plot_keypoints(kpts, colors="lime", ps=4, axes=None, a=1.0):
-    """Plot keypoints for existing images.
-    Args:
-        kpts: list of ndarrays of size (N, 2).
-        colors: string, or list of list of tuples (one for each keypoints).
-        ps: size of the keypoints as float.
+    """기존 image 위에 keypoint를 그립니다.
+
+    인자:
+        kpts: (N, 2) ndarray list
+        colors: string 또는 keypoint별 tuple list의 list
+        ps: keypoint 크기
     """
     if not isinstance(colors, list):
         colors = [colors] * len(kpts)
@@ -97,14 +99,15 @@ def plot_keypoints(kpts, colors="lime", ps=4, axes=None, a=1.0):
 
 
 def plot_matches(kpts0, kpts1, color=None, lw=1.5, ps=4, a=1.0, labels=None, axes=None):
-    """Plot matches for a pair of existing images.
-    Args:
-        kpts0, kpts1: corresponding keypoints of size (N, 2).
-        color: color of each match, string or RGB tuple. Random if not given.
-        lw: width of the lines.
-        ps: size of the end points (no endpoint if ps=0)
-        indices: indices of the images to draw the matches on.
-        a: alpha opacity of the match lines.
+    """두 image 사이의 keypoint match를 그립니다.
+
+    인자:
+        kpts0, kpts1: 서로 대응하는 (N, 2) keypoint
+        color: 각 match의 string 또는 RGB tuple 색상. 미지정 시 무작위로 정합니다.
+        lw: line 두께
+        ps: endpoint 크기. 0이면 endpoint를 그리지 않습니다.
+        indices: match를 그릴 image index
+        a: match line의 alpha opacity
     """
     fig = plt.gcf()
     if axes is None:
@@ -142,7 +145,7 @@ def plot_matches(kpts0, kpts1, color=None, lw=1.5, ps=4, a=1.0, labels=None, axe
             line.set_annotation_clip(True)
             fig.add_artist(line)
 
-    # freeze the axes to prevent the transform to change
+    # transformation이 바뀌지 않도록 axis를 고정합니다.
     ax0.autoscale(enable=False)
     ax1.autoscale(enable=False)
 
@@ -174,5 +177,5 @@ def add_text(
 
 
 def save_plot(path, **kw):
-    """Save the current figure without any white margin."""
+    """현재 figure를 흰 여백 없이 저장합니다."""
     plt.savefig(path, bbox_inches="tight", pad_inches=0, **kw)

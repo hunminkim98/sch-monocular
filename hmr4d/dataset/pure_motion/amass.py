@@ -14,10 +14,10 @@ class AmassDataset(BaseDataset):
     def __init__(
         self,
         motion_frames=120,
-        l_factor=1.5,  # speed augmentation
-        skip_moyo=True,  # not contained in the ICCV19 released version
+        l_factor=1.5,  # 속도 증강
+        skip_moyo=True,  # ICCV19 공개 버전에 포함되지 않은 데이터를 건너뜁니다.
         cam_augmentation="v11",
-        random1024=False,  # DEBUG
+        random1024=False,  # 디버그용 subset 사용 여부
         limit_size=None,
     ):
         self.root = Path("inputs/AMASS/hmr4d_support")
@@ -32,7 +32,7 @@ class AmassDataset(BaseDataset):
         filename = self.root / "smplxpose_v2.pth"
         Log.info(f"[{self.dataset_name}] Loading from {filename} ...")
         tic = Log.time()
-        if self.random1024:  # Debug, faster loading
+        if self.random1024:  # 디버그 시 빠르게 불러옵니다.
             try:
                 Log.info(f"[{self.dataset_name}] Loading 1024 samples for debugging ...")
                 self.motion_files = torch.load(self.root / "smplxpose_v2_random1024.pth")
@@ -49,21 +49,21 @@ class AmassDataset(BaseDataset):
         Log.info(f"[{self.dataset_name}] {len(self.seqs)} raw sequences. Elapsed: {Log.time() - tic:.2f}s")
 
     def _get_idx2meta(self):
-        # We expect to see the entire sequence during one epoch,
-        # so each sequence will be sampled max(SeqLength // MotionFrames, 1) times
+        # 한 epoch에서 전체 sequence를 보도록 각 sequence를
+        # max(SeqLength // MotionFrames, 1)번 샘플링합니다.
         seq_lengths = []
         self.idx2meta = []
 
-        # Skip too-long idle-prefix
-        motion_start_id = {}  # idk what this is used for... never used
+        # 너무 긴 idle prefix를 건너뜁니다.
+        motion_start_id = {}  # 현재는 사용되지 않는 시작 위치 mapping입니다.
         for vid in self.motion_files:
             if self.skip_moyo and "moyo_smplxn" in vid:
                 continue
             seq_length = self.motion_files[vid]["pose"].shape[0]
             start_id = motion_start_id[vid] if vid in motion_start_id else 0
-            assert start_id == 0  # start_id always 0
+            assert start_id == 0  # start_id는 항상 0입니다.
             seq_length = seq_length - start_id
-            if seq_length < 25:  # Skip clips that are too short
+            if seq_length < 25:  # 너무 짧은 clip은 건너뜁니다.
                 continue
             num_samples = max(seq_length // self.motion_frames, 1)
             seq_lengths.append(seq_length)
@@ -76,11 +76,11 @@ class AmassDataset(BaseDataset):
 
     def _load_data(self, idx):
         """
-        - Load original data
-        - Augmentation: speed-augmentation to L frames
+        - 원본 데이터를 불러옵니다.
+        - L frame 길이가 되도록 속도를 증강합니다.
         """
-        # Load original data
-        mid, start_id = self.idx2meta[idx]  # start_id always 0
+        # 원본 데이터를 불러옵니다.
+        mid, start_id = self.idx2meta[idx]  # start_id는 항상 0입니다.
         raw_data = self.motion_files[mid]
         raw_len = raw_data["pose"].shape[0] - start_id
         data = {
@@ -89,19 +89,19 @@ class AmassDataset(BaseDataset):
             "global_orient": raw_data["pose"][start_id:, :3],  # (F, 3)
             "transl": raw_data["trans"][start_id:],  # (F, 3)
         }
-        # Get {tgt_len} frames from data
-        # Random select a subset with speed augmentation  [start, end)
+        # 데이터에서 {tgt_len}개 frame을 구합니다.
+        # 속도 증강을 적용할 [start, end) subset을 무작위로 선택합니다.
         tgt_len = self.motion_frames
         raw_subset_len = np.random.randint(int(tgt_len / self.l_factor), int(tgt_len * self.l_factor))
         if raw_subset_len <= raw_len:
             start = np.random.randint(0, raw_len - raw_subset_len + 1)
             end = start + raw_subset_len
-        else:  # interpolation will use all possible frames (results in a slow motion)
+        else:  # 가능한 모든 frame을 보간하므로 느린 동작이 만들어집니다.
             start = 0
             end = raw_len
         data = {k: v[start:end] for k, v in data.items()}
 
-        # Interpolation (vec + r6d)
+        # vector와 rotation 6D 표현을 보간합니다.
         data_interpolated = interpolate_smpl_params(data, tgt_len)
 
         # AZ -> AY

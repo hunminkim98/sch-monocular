@@ -16,7 +16,7 @@ class VitPoseExtractor:
             ckpt_path = "inputs/checkpoints/vitpose/vitpose-h-multi-coco.pth"
             model_config = "ViTPose_huge_coco_256x192"
         else:
-            assert number_joints == 23  # coco-wholebody 133j skeleton (only use 17 body + 6 feet)
+            assert number_joints == 23  # COCO-WholeBody 133개 joint 중 몸 17개와 발 6개만 사용합니다.
             ckpt_path = "inputs/checkpoints/vitpose/vitpose-h-wholebody.pth"
             model_config = "ViTPose_huge_wholebody_256x192"
         self.number_joints = number_joints
@@ -28,7 +28,7 @@ class VitPoseExtractor:
 
     @torch.no_grad()
     def extract(self, video_path, bbx_xys, img_ds=0.5):
-        # Get the batch
+        # batch 입력을 준비합니다.
         if isinstance(video_path, str):
             imgs, bbx_xys = get_batch(video_path, bbx_xys, img_ds=img_ds)
         elif isinstance(video_path, np.ndarray):
@@ -36,12 +36,12 @@ class VitPoseExtractor:
         else:
             assert isinstance(video_path, torch.Tensor)
             imgs = video_path
-        # Inference
+        # 추론
         L, _, H, W = imgs.shape  # (L, 3, H, W)
         batch_size = 16
         vitpose = []
         for j in tqdm(range(0, L, batch_size), desc="ViTPose", leave=self.tqdm_leave):
-            # Heat map
+            # heatmap 생성
             imgs_batch = imgs[j : j + batch_size, :, :, 32:224].cuda()
             if self.flip_test:
                 heatmap, heatmap_flipped = self.pose(torch.cat([imgs_batch, imgs_batch.flip(3)], dim=0)).chunk(2)
@@ -59,7 +59,7 @@ class VitPoseExtractor:
                     heatmap = heatmap[:, :23]
 
             if False:
-                # Get joint
+                # joint 좌표를 구합니다.
                 bbx_xys_batch = bbx_xys[j : j + batch_size].cuda()
                 method = "hard"
                 if method == "hard":
@@ -67,12 +67,12 @@ class VitPoseExtractor:
                 elif method == "soft":
                     kp2d_pm1, conf = get_heatmap_preds(heatmap, soft=True)
 
-                # Convert 64, 48 to 64, 64
+                # 64x48 좌표를 64x64 기준으로 변환합니다.
                 kp2d_pm1[:, :, 0] *= 24 / 32
                 kp2d = cvt_p2d_from_pm1_to_i(kp2d_pm1, bbx_xys_batch[:, None])
                 kp2d = torch.cat([kp2d, conf], dim=-1)
 
-            else:  # postprocess from mmpose
+            else:  # MMPose 방식으로 후처리합니다.
                 bbx_xys_batch = bbx_xys[j : j + batch_size]
                 heatmap = heatmap.clone().cpu().numpy()
                 center = bbx_xys_batch[:, :2].numpy()
@@ -107,7 +107,7 @@ def get_heatmap_preds(heatmap, normalize_keypoints=True, thr=0.0, soft=False):
     pred_mask = pred_mask.float()
     preds *= pred_mask
 
-    # soft peak
+    # soft peak 보정
     if soft:
         patch_size = 5
         patch_half = patch_size // 2
@@ -128,7 +128,7 @@ def get_heatmap_preds(heatmap, normalize_keypoints=True, thr=0.0, soft=False):
         preds[:, :, 0] += dx
         preds[:, :, 1] += dy
 
-    if normalize_keypoints:  # to [-1, 1]
+    if normalize_keypoints:  # [-1, 1] 범위로 정규화합니다.
         preds[:, :, 0] = preds[:, :, 0] / (W - 1) * 2 - 1
         preds[:, :, 1] = preds[:, :, 1] / (H - 1) * 2 - 1
 
@@ -142,7 +142,7 @@ def soft_patch_dx_dy(p):
     temperature = 1.0
     score = F.softmax(p.view(-1, patch_size**2) * temperature, dim=-1)
 
-    # get a offset_grid (BN, P, P, 2) for dx, dy
+    # dx와 dy를 위한 offset_grid (BN, P, P, 2)를 만듭니다.
     offset_grid = torch.meshgrid(torch.arange(patch_size), torch.arange(patch_size))[::-1]
     offset_grid = torch.stack(offset_grid, dim=-1).float() - (patch_size - 1) / 2
     offset_grid = offset_grid.view(1, 1, patch_size, patch_size, 2).to(p.device)

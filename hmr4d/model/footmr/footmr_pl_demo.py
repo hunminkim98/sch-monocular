@@ -14,7 +14,8 @@ class DemoPL(pl.LightningModule):
 
     @torch.no_grad()
     def predict(self, data, static_cam=False, no_postproc=False):
-        """auto add batch dim
+        """batch 차원을 자동으로 추가합니다.
+
         data: {
             "length": int, or Torch.Tensor,
             "kp2d": (F, 3)
@@ -25,7 +26,7 @@ class DemoPL(pl.LightningModule):
         }
 
         """
-        # ROPE inference
+        # RoPE 추론
         obs = normalize_kp2d(data["kp2d"], data["bbx_xys"])[None]
         batch = {
             "length": data["length"][None],
@@ -45,12 +46,12 @@ class DemoPL(pl.LightningModule):
             "smpl_params_global": {k: v[0] for k, v in outputs["pred_smpl_params_global"].items()},
             "smpl_params_incam": {k: v[0] for k, v in outputs["pred_smpl_params_incam"].items()},
             "K_fullimg": data["K_fullimg"],
-            "net_outputs": outputs,  # intermediate outputs
+            "net_outputs": outputs,  # 중간 출력
         }
         return pred
 
     def load_pretrained_model(self, ckpt_path):
-        """Load pretrained checkpoint, and assign each weight to the corresponding part."""
+        """사전 학습 checkpoint를 불러와 각 weight를 해당 부분에 할당합니다."""
         Log.info(f"[PL-Trainer] Loading ckpt type: {ckpt_path}")
 
         state_dict = torch.load(ckpt_path, "cpu")["state_dict"]

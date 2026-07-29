@@ -32,8 +32,8 @@ VID_PRESETS = {
 class RichSmplFullSeqDataset(data.Dataset):
     def __init__(self, vid_presets=None):
         """
-        Args:
-            vid_presets is a key in VID_PRESETS
+        인자:
+            vid_presets: VID_PRESETS의 key
         """
         super().__init__()
         self.dataset_name = "RICH"
@@ -41,7 +41,7 @@ class RichSmplFullSeqDataset(data.Dataset):
         Log.info(f"[{self.dataset_name}] Full sequence, Test")
         tic = Log.time()
 
-        # Load evaluation protocol from WHAM labels
+        # WHAM label에서 평가 protocol을 불러옵니다.
         self.rich_dir = Path("inputs/RICH/hmr4d_support")
         self.labels = torch.load(self.rich_dir / "rich_test_labels.pt")
         # ['vid', 'frame_id', 'gender', 'gt_smplx_params']
@@ -51,16 +51,16 @@ class RichSmplFullSeqDataset(data.Dataset):
 
         vids = select_subset(self.labels, vid_presets)
 
-        # Setup dataset index
+        # dataset index를 구성합니다.
         self.idx2meta = []
         for vid in vids:
             seq_length = len(self.labels[vid]["frame_id"])
-            self.idx2meta.append((vid, 0, seq_length))  # start=0, end=seq_length
+            self.idx2meta.append((vid, 0, seq_length))  # start=0, end=sequence 길이
         # print(sum([end - start for _, _, start, end in self.idx2meta]))
 
-        # Prepare ground truth motion in ay-coordinate
-        self.w2az = get_w2az_sahmr()  # scan_name -> T_w2az, w-coordinate refers to cam-1-coordinate
-        self.cam2params = get_cam2params()  # cam_key -> (T_w2c, K)
+        # ay 좌표계의 GT motion을 준비합니다.
+        self.w2az = get_w2az_sahmr()  # scan_name -> T_w2az, world 좌표계는 cam-1 좌표계를 뜻합니다.
+        self.cam2params = get_cam2params()  # cam_key를 (T_w2c, K)에 매핑합니다.
         seqname_info = parse_seqname_info(skip_multi_persons=True)  # {k: (scan_name, subject_id, gender, cam_ids)}
         self.seqname_to_scanname = {k: v[0] for k, v in seqname_info.items()}
 
@@ -72,7 +72,7 @@ class RichSmplFullSeqDataset(data.Dataset):
     def _load_data(self, idx):
         data = {}
 
-        # [start, end), when loading data from labels
+        # label에서 [start, end) 범위의 데이터를 불러옵니다.
         vid, start, end = self.idx2meta[idx]
         label = self.labels[vid]
         preproc_data = self.preproc_data[vid]
@@ -80,21 +80,21 @@ class RichSmplFullSeqDataset(data.Dataset):
         length = end - start
         meta = {"dataset_id": "RICH", "vid": vid, "vid-start-end": (start, end)}
         data.update({"meta": meta, "length": length, "num_seqs": len(self.idx2meta)})
-        # SMPLX
+        # SMPL-X 파라미터
         data.update({"gt_smpl_params": label["gt_smplx_params"], "gender": label["gender"]})
 
-        # camera
+        # camera 파라미터
         cam_key = get_cam_key_wham_vid(vid)
         scan_name = self.seqname_to_scanname[vid.split("/")[1]]
         T_w2c, K = self.cam2params[cam_key]  # (4, 4)  (3, 3)
         data.update({"gt_K": K})
         T_w2az = self.w2az[scan_name]
-        # use approximated intrinsics:
+        # 근사 intrinsic 파라미터를 사용합니다.
         K = estimate_K(preproc_data["img_wh"][0], preproc_data["img_wh"][1])
         # K = preproc_data["pred_K"].mean(dim=0)
         data.update({"T_w2c": T_w2c, "T_w2az": T_w2az, "K": K})
 
-        # image features
+        # image feature를 불러옵니다.
         data.update(
             {
                 "f_imgseq": preproc_data["f_imgseq"],
@@ -108,11 +108,11 @@ class RichSmplFullSeqDataset(data.Dataset):
         kp2d = torch.cat((kp2d, kp2d_feet), dim=1)
         data.update({"kp2d": kp2d})
 
-        # to render a video
+        # video rendering용 정보
         video_path = self.rich_dir / f"videos/{vid}.mp4"
         frame_id = label["frame_id"]  # (F,)
-        ds = 0.25  # created videos in 0.25 res
-        width, height = data["img_wh"] * ds  # Video saved has been downsampled 1/4
+        ds = 0.25  # 원본 해상도의 0.25배로 video를 만듭니다.
+        width, height = data["img_wh"] * ds  # 저장된 video는 1/4로 downsample됩니다.
         K_render_gt = resize_K(data["gt_K"], ds)
         K_render = resize_K(K, ds)
         bbx_xys_render = data["bbx_xys"] * ds
@@ -133,24 +133,24 @@ class RichSmplFullSeqDataset(data.Dataset):
         return data
 
     def _process_data(self, data):
-        # T_w2az is pre-computed by using floor clue. az2zy uses a rotation along x-axis.
+        # T_w2az는 바닥 단서로 미리 계산하며, az2ay는 x축 회전을 사용합니다.
         R_az2ay = axis_angle_to_matrix(torch.tensor([1.0, 0.0, 0.0]) * -torch.pi / 2)  # (3, 3)
         T_w2ay = transform_mat(R_az2ay, R_az2ay.new([0, 0, 0])) @ data["T_w2az"]  # (4, 4)
 
-        # process img feature with xys
+        # xys를 사용해 image feature를 처리합니다.
         length = data["length"]
         f_imgseq = data["f_imgseq"]  # (F, 1024)
         R_w2c = data["T_w2c"][:3, :3].repeat(length, 1, 1)  # (L, 4, 4)
         cam_angvel = compute_cam_angvel(R_w2c)  # (L, 6)
 
-        # Return
+        # 반환값 구성
         data = {
-            # --- not batched
+            # --- batch로 묶지 않는 값
             "task": "CAP-Seq",
             "num_seqs": data["num_seqs"],
             "meta": data["meta"],
             "meta_render": data["meta_render"],
-            # --- we test on single sequence, so set kv manually
+            # --- 단일 sequence를 평가하므로 key-value를 직접 설정합니다.
             "length": length,
             "f_imgseq": f_imgseq,
             "cam_angvel": cam_angvel,
@@ -158,7 +158,7 @@ class RichSmplFullSeqDataset(data.Dataset):
             "K_fullimg": data["K"][None].expand(length, -1, -1),  # (F, 3, 3)
             "gt_K_fullimg": data["gt_K"][None].expand(length, -1, -1),
             "kp2d": data["kp2d"],  # (F, 17, 3)
-            # --- dataset specific
+            # --- dataset 전용 값
             "model": "smplx",
             "gender": data["gender"],
             "gt_smpl_params": data["gt_smpl_params"],
@@ -175,7 +175,7 @@ class RichSmplFullSeqDataset(data.Dataset):
 
 def select_subset(labels, vid_presets):
     vids = list(labels.keys())
-    if vid_presets != None:  # Use a subset of the videos
+    if vid_presets != None:  # video subset을 사용합니다.
         vids = VID_PRESETS[vid_presets]
     return vids
 

@@ -13,8 +13,8 @@ def print_cfg(cfg: DictConfig, use_rich: bool = False):
         style = "dim"
         tree = rich.tree.Tree("CONFIG", style=style, guide_style=style)
 
-        # add fields from `print_order` to queue
-        # add all the other fields to queue (not specified in `print_order`)
+        # `print_order`에 지정된 필드를 큐에 추가한다.
+        # `print_order`에 없는 나머지 필드도 큐에 추가한다.
         queue = []
         for field in print_order:
             queue.append(field) if field in cfg else Log.warn(f"Field '{field}' not found in config. Skipping.")
@@ -22,7 +22,7 @@ def print_cfg(cfg: DictConfig, use_rich: bool = False):
             if field not in queue:
                 queue.append(field)
 
-        # generate config tree from queue
+        # 큐를 바탕으로 설정 트리를 생성한다.
         for field in queue:
             branch = tree.add(field, style=style, guide_style=style)
             config_group = cfg[field]

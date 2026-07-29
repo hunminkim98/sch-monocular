@@ -12,20 +12,20 @@ class FootEncoderRoPE(nn.Module):
         self,
         # x
         max_len=120,
-        # condition
+        # 조건
         cliffcam_dim=3,
-        # intermediate
+        # 중간 표현
         latent_dim=256,
         num_layers=6,
         num_heads=4,
         mlp_ratio=2.0,
-        # training
+        # 학습
         dropout=0.1,
     ):
         super().__init__()
-        self.num_2d_joints = 2 * 4  # 4 joints for left and right foot
-        self.num_rot_condition = 4  # condition on left and right knee and initial ankle
-        self.output_dim = 2 * 6  # left and right ankle joint in 6D representation
+        self.num_2d_joints = 2 * 4  # 왼발과 오른발에 각각 4개 joint를 사용합니다.
+        self.num_rot_condition = 4  # 양쪽 무릎과 초기 발목을 조건으로 사용합니다.
+        self.output_dim = 2 * 6  # 양쪽 발목 joint의 6D 표현
         self.max_len = max_len
         self.cliffcam_dim = cliffcam_dim
         assert self.cliffcam_dim > 0
@@ -35,9 +35,9 @@ class FootEncoderRoPE(nn.Module):
         self.num_heads = num_heads
         self.dropout = dropout
 
-        # ===== build model ===== #
-        # Input (Kp2d)
-        # Main token: map d_obs 2 to 32
+        # ===== 모델 구성 ===== #
+        # 입력(Kp2d)
+        # main token: d_obs를 2차원에서 32차원으로 변환합니다.
         self.learned_pos_linear = nn.Linear(2, 32)
         self.learned_pos_params = nn.Parameter(
             torch.randn(self.num_2d_joints, 32), requires_grad=True
@@ -51,7 +51,7 @@ class FootEncoderRoPE(nn.Module):
 
         self._build_condition_embedder()
 
-        # Transformer
+        # Transformer 본체
         self.blocks = nn.ModuleList(
             [
                 EncoderRoPEBlock(
@@ -61,7 +61,7 @@ class FootEncoderRoPE(nn.Module):
             ]
         )
 
-        # Output heads
+        # 출력 head
         self.final_layer = Mlp(self.latent_dim, out_features=self.output_dim)
 
     def _build_condition_embedder(self):
@@ -84,15 +84,15 @@ class FootEncoderRoPE(nn.Module):
         B, L, J, C = obs.shape
         assert C == 3
 
-        # Main token from observation (2D pose)
+        # observation(2D pose)에서 main token을 만듭니다.
         obs = obs.clone()
         visible_mask = obs[..., [2]] > 0.5  # (B, L, J, 1)
-        obs[~visible_mask[..., 0]] = 0  # set low-conf to all zeros
+        obs[~visible_mask[..., 0]] = 0  # confidence가 낮은 값을 모두 0으로 설정합니다.
         f_obs = self.learned_pos_linear(obs[..., :2])  # (B, L, J, 32)
         f_obs = f_obs * visible_mask + self.learned_pos_params.repeat(B, L, 1, 1) * ~visible_mask
         x = self.embed_noisyobs(f_obs.view(B, L, -1))  # (B, L, J*32) -> (B, L, C)
 
-        # Condition
+        # 조건 feature
         f_to_add = []
         f_to_add.append(self.cliffcam_embedder(f_cliffcam))
         f_to_add.append(self.rot6d_embedder(global_rot6d))
@@ -100,7 +100,7 @@ class FootEncoderRoPE(nn.Module):
         for f_delta in f_to_add:
             x = x + f_delta
 
-        # Setup length and make padding mask
+        # 길이를 설정하고 padding mask를 만듭니다.
         assert B == length.size(0)
         pmask = ~length_to_mask(length, L)  # (B, L)
 
@@ -115,12 +115,12 @@ class FootEncoderRoPE(nn.Module):
         else:
             attnmask = None
 
-        # Transformer
+        # Transformer 본체
         for block in self.blocks:
             x = block(x, attn_mask=attnmask, tgt_key_padding_mask=pmask)
 
-        # Output
+        # 출력
         sample = self.final_layer(x)  # (B, L, C)
-        # predict residual to initial ankle rotations
+        # 초기 발목 rotation에 대한 residual을 예측합니다.
         sample = sample + global_rot6d[:, :, -12:]
         return sample

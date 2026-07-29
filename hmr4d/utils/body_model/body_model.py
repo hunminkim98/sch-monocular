@@ -11,8 +11,8 @@ from smplx.utils import Struct
 
 class BodyModel(nn.Module):
     """ 
-    Wrapper around SMPLX body model class. 
-    modified by Zehong Shen
+    SMPL-X body model class의 wrapper.
+    Zehong Shen이 수정했다.
     """
 
     def __init__(self,
@@ -22,11 +22,11 @@ class BodyModel(nn.Module):
                  model_type='smplh'):
         super().__init__()
         '''
-        Creates the body model object at the given path.
+        주어진 경로에서 body model 객체를 만든다.
 
-        :param bm_path: path to the body model pkl file
-        :param model_type: one of [smpl, smplh, smplx]
-        :param use_vtx_selector: if true, returns additional vertices as joints that correspond to OpenPose joints
+        :param bm_path: body model pkl 파일 경로
+        :param model_type: [smpl, smplh, smplx] 중 하나
+        :param use_vtx_selector: True이면 OpenPose joint에 해당하는 vertex를 추가 joint로 반환한다.
         '''
         self.use_vtx_selector = use_vtx_selector
         cur_vertex_ids = None
@@ -34,7 +34,7 @@ class BodyModel(nn.Module):
             cur_vertex_ids = vertex_ids[model_type]
         data_struct = None
         if '.npz' in bm_path:
-            # smplx does not support .npz by default, so have to load in manually
+            # smplx는 기본적으로 .npz를 지원하지 않으므로 직접 불러온다.
             smpl_dict = np.load(bm_path, encoding='latin1')
             data_struct = Struct(**smpl_dict)
             # print(smpl_dict.files)
@@ -45,7 +45,7 @@ class BodyModel(nn.Module):
                 data_struct.hands_meanr = np.zeros((15 * 3))
                 V, D, B = data_struct.shapedirs.shape
                 data_struct.shapedirs = np.concatenate([data_struct.shapedirs, np.zeros(
-                    (V, D, SMPL.SHAPE_SPACE_DIM-B))], axis=-1)  # super hacky way to let smplh use 16-size beta
+                    (V, D, SMPL.SHAPE_SPACE_DIM-B))], axis=-1)  # SMPL-H가 16차원 beta를 쓰도록 맞춘 임시 처리
         kwargs = {
             'model_type': model_type,
             'data_struct': data_struct,
@@ -53,7 +53,7 @@ class BodyModel(nn.Module):
             'vertex_ids': cur_vertex_ids,
             'use_pca': False,
             'flat_hand_mean': True,
-            # - enable variable batchsize, since we don't need module variable - #
+            # module 변수가 필요 없으므로 가변 batch 크기를 허용한다.
             'create_body_pose': False,
             'create_betas': False,
             'create_global_orient': False,
@@ -77,7 +77,7 @@ class BodyModel(nn.Module):
     def forward(self, root_orient=None, pose_body=None, pose_hand=None, pose_jaw=None, pose_eye=None, betas=None,
                 trans=None, dmpls=None, expression=None, return_dict=False, **kwargs):
         '''
-        Note dmpls are not supported.
+        dmpls는 지원하지 않는다.
         '''
         assert(dmpls is None)
         B = pose_body.shape[0]
@@ -108,8 +108,8 @@ class BodyModel(nn.Module):
         }
 
         if not self.use_vtx_selector:
-            # don't need extra joints
-            out['Jtr'] = out['Jtr'][:, :self.num_joints+1]  # add one for the root
+            # 추가 joint는 필요 없다.
+            out['Jtr'] = out['Jtr'][:, :self.num_joints+1]  # root를 위해 하나를 추가한다.
 
         if not return_dict:
             out = Struct(**out)

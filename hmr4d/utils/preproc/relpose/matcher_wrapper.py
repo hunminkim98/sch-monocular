@@ -14,10 +14,10 @@ class Matcher:
 
     def match_np(self, img0, img1):
         """
-        Args:
+        인자:
             img0: np.ndarray, shape (H, W, 3), dtype=np.uint8
             img1: np.ndarray, shape (H, W, 3), dtype=np.uint8
-        Returns:
+        반환:
             pts0: np.ndarray, shape (N, 2), dtype=np.float32
             pts1: np.ndarray, shape (N, 2), dtype=np.float32
         """

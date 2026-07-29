@@ -66,7 +66,7 @@ class EncoderRoPEBlock(nn.Module):
         self.gate_msa = nn.Parameter(torch.zeros(1, 1, hidden_size))
         self.gate_mlp = nn.Parameter(torch.zeros(1, 1, hidden_size))
 
-        # Zero-out adaLN modulation layers
+        # adaLN modulation layer를 0으로 초기화한다.
         nn.init.constant_(self.gate_msa, 0)
         nn.init.constant_(self.gate_mlp, 0)
 

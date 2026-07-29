@@ -9,7 +9,7 @@ from pytorch3d.transforms import axis_angle_to_matrix
 
 def make_wis3d(output_dir="outputs/wis3d", name="debug", time_postfix=False):
     """
-    Make a Wis3D instance. e.g.:
+    Wis3D 인스턴스를 만든다. 사용 예:
         from hmr4d.utils.wis3d_utils import make_wis3d
         wis3d = make_wis3d(time_postfix=True)
     """
@@ -37,7 +37,7 @@ color_schemes = {
 
 def get_gradient_colors(scheme="red", num_points=120, alpha=1.0):
     """
-    Return a list of colors that are gradient from start to end.
+    시작 색에서 끝 색까지 이어지는 그라데이션 색상 목록을 반환한다.
     """
     start_rgba = torch.tensor(color_schemes[scheme][0] + [255 * alpha]) / 255
     end_rgba = torch.tensor(color_schemes[scheme][1] + [255 * alpha]) / 255
@@ -47,7 +47,7 @@ def get_gradient_colors(scheme="red", num_points=120, alpha=1.0):
 
 def get_const_colors(name="red", partial_shape=(120, 5), alpha=1.0):
     """
-    Return colors (partial_shape, 4)
+    지정한 색상을 (partial_shape, 4) 형태로 반환한다.
     """
     rgba = torch.tensor(color_schemes[name][1] + [255 * alpha]) / 255
     partial_shape = tuple(partial_shape)
@@ -61,30 +61,30 @@ def get_colors_by_conf(conf, low="red", high="green"):
     return colors
 
 
-# ================== Colored Motion Sequence ================== #
+# ================== 색상으로 구분한 동작 시퀀스 ================== #
 
 
 KINEMATIC_CHAINS = {
     "smpl22": [
-        [0, 2, 5, 8, 11],  # right-leg
-        [0, 1, 4, 7, 10],  # left-leg
-        [0, 3, 6, 9, 12, 15],  # spine
-        [9, 14, 17, 19, 21],  # right-arm
-        [9, 13, 16, 18, 20],  # left-arm
+        [0, 2, 5, 8, 11],  # 오른쪽 다리
+        [0, 1, 4, 7, 10],  # 왼쪽 다리
+        [0, 3, 6, 9, 12, 15],  # 척추
+        [9, 14, 17, 19, 21],  # 오른쪽 팔
+        [9, 13, 16, 18, 20],  # 왼쪽 팔
     ],
     "h36m17": [
-        [0, 1, 2, 3],  # right-leg
-        [0, 4, 5, 6],  # left-leg
-        [0, 7, 8, 9, 10],  # spine
-        [8, 14, 15, 16],  # right-arm
-        [8, 11, 12, 13],  # left-arm
+        [0, 1, 2, 3],  # 오른쪽 다리
+        [0, 4, 5, 6],  # 왼쪽 다리
+        [0, 7, 8, 9, 10],  # 척추
+        [8, 14, 15, 16],  # 오른쪽 팔
+        [8, 11, 12, 13],  # 왼쪽 팔
     ],
     "coco17": [
-        [12, 14, 16],  # right-leg
-        [11, 13, 15],  # left-leg
-        [4, 2, 0, 1, 3],  # replace spine with head
-        [6, 8, 10],  # right-arm
-        [5, 7, 9],  # left-arm
+        [12, 14, 16],  # 오른쪽 다리
+        [11, 13, 15],  # 왼쪽 다리
+        [4, 2, 0, 1, 3],  # 척추 대신 머리를 사용한다.
+        [6, 8, 10],  # 오른쪽 팔
+        [5, 7, 9],  # 왼쪽 팔
     ],
 }
 
@@ -131,8 +131,8 @@ def add_motion_as_lines(motion, wis3d, name="joints22", skeleton_type="smpl22", 
     )
     for f in range(len(vertices)):
         wis3d.set_scene_id(f + offset)
-        wis3d.add_mesh(vertices[f], faces, vertex_colors, name=name)  # Add skeleton as cylinders
-        # Old way to add lines, this may cause problems when the number of lines is large
+        wis3d.add_mesh(vertices[f], faces, vertex_colors, name=name)  # skeleton을 원기둥 형태로 추가한다.
+        # 선이 많을 때 문제가 생길 수 있는 이전 방식
         # wis3d.add_lines(s_points[f], e_points[f], m_colors[f], name=name)
 
 
@@ -172,13 +172,13 @@ def add_prog_motion_as_lines(motion, wis3d, name="joints22", skeleton_type="smpl
 
 
 def add_joints_motion_as_spheres(joints, wis3d, radius=0.05, name="joints", label_each_joint=False):
-    """Visualize skeleton as spheres to explore the skeleton.
+    """skeleton 구조를 살펴볼 수 있도록 joint를 구체로 시각화한다.
     Args:
         joints: (NF, NJ, 3)
         wis3d
-        radius: radius of the spheres
+        radius: 구의 반지름
         name
-        label_each_joint: if True, each joints will have a label in wis3d (then you can interact with it, but it's slower)
+        label_each_joint: True이면 각 joint에 Wis3D label을 붙인다. 상호작용할 수 있지만 느려진다.
     """
     colors = torch.zeros_like(joints).float()
     n_frames = joints.shape[0]
@@ -207,32 +207,32 @@ def add_joints_motion_as_spheres(joints, wis3d, radius=0.05, name="joints", labe
 
 def create_skeleton_mesh(p1, p2, radius, color, resolution=4, return_merged=True):
     """
-    Create mesh between p1 and p2.
+    p1과 p2 사이에 mesh를 만든다.
     Args:
         p1 (torch.Tensor): (N, 3),
         p2 (torch.Tensor): (N, 3),
-        radius (float): radius,
+        radius (float): 반지름,
         color (torch.Tensor): (N, 3)
-        resolution (int): number of vertices in one circle, denoted as Q
+        resolution (int): 원 하나를 구성하는 vertex 수(Q)
     Returns:
-        vertices (torch.Tensor): (N * 2Q, 3), if return_merged is False (N, 2Q, 3)
-        faces (torch.Tensor): (M', 3), if return_merged is False (N, M, 3)
-        vertex_colors (torch.Tensor): (N * 2Q, 3), if return_merged is False (N, 2Q, 3)
+        vertices (torch.Tensor): (N * 2Q, 3), return_merged가 False이면 (N, 2Q, 3)
+        faces (torch.Tensor): (M', 3), return_merged가 False이면 (N, M, 3)
+        vertex_colors (torch.Tensor): (N * 2Q, 3), return_merged가 False이면 (N, 2Q, 3)
     """
     N = p1.shape[0]
 
-    # Calculate segment direction
+    # 선분 방향을 계산한다.
     seg_dir = p2 - p1  # (N, 3)
     unit_seg_dir = seg_dir / seg_dir.norm(dim=-1, keepdim=True)  # (N, 3)
 
-    # Compute an orthogonal vector
+    # 직교 벡터를 계산한다.
     x_vec = torch.tensor([1, 0, 0], device=p1.device).float().unsqueeze(0).repeat(N, 1)  # (N, 3)
     y_vec = torch.tensor([0, 1, 0], device=p1.device).float().unsqueeze(0).repeat(N, 1)
     ortho_vec = torch.cross(unit_seg_dir, x_vec, dim=-1)  # (N, 3)
-    ortho_vec_ = torch.cross(unit_seg_dir, y_vec, dim=-1)  # (N, 3)  backup
+    ortho_vec_ = torch.cross(unit_seg_dir, y_vec, dim=-1)  # (N, 3) 예비 vector
     ortho_vec = torch.where(ortho_vec.norm(dim=-1, keepdim=True) > 1e-3, ortho_vec, ortho_vec_)
 
-    # Get circle points on two ends
+    # 양 끝의 원 위 점을 구한다.
     unit_ortho_vec = ortho_vec / ortho_vec.norm(dim=-1, keepdim=True)  # (N, 3)
     theta = torch.linspace(0, 2 * np.pi, resolution, device=p1.device)
     rotation_matrix = axis_angle_to_matrix(unit_seg_dir[:, None] * theta[None, :, None])  # (N, Q, 3, 3)
@@ -240,32 +240,32 @@ def create_skeleton_mesh(p1, p2, radius, color, resolution=4, return_merged=True
     bottom_points = rotated_points + p1.unsqueeze(1)  # (N, Q, 3)
     top_points = rotated_points + p2.unsqueeze(1)  # (N, Q, 3)
 
-    # Combine bottom and top points
+    # 아래쪽과 위쪽 점을 합친다.
     vertices = torch.cat([bottom_points, top_points], dim=1)  # (N, 2Q, 3)
 
-    # Generate face
+    # face를 생성한다.
     indices = torch.arange(0, resolution, device=p1.device)
     bottom_indices = indices
     top_indices = indices + resolution
 
-    # outside face
+    # 바깥쪽 face
     face_bottom = torch.stack([bottom_indices[:-2], bottom_indices[1:-1], bottom_indices[-1].repeat(resolution - 2)], 1)
     face_top = torch.stack([top_indices[1:-1], top_indices[:-2], top_indices[-1].repeat(resolution - 2)], 1)
     faces = torch.cat(
         [
-            torch.stack([bottom_indices[1:], bottom_indices[:-1], top_indices[:-1]], 1),  # out face
-            torch.stack([bottom_indices[1:], top_indices[:-1], top_indices[1:]], 1),  # out face
+            torch.stack([bottom_indices[1:], bottom_indices[:-1], top_indices[:-1]], 1),  # 바깥쪽 face
+            torch.stack([bottom_indices[1:], top_indices[:-1], top_indices[1:]], 1),  # 바깥쪽 face
             face_bottom,
             face_top,
         ]
     )
     faces = faces.unsqueeze(0).repeat(p1.shape[0], 1, 1)  # (N, M, 3)
 
-    # Assign colors
+    # 색상을 지정한다.
     vertex_colors = color.unsqueeze(1).repeat(1, resolution * 2, 1)
 
     if return_merged:
-        # manully adjust face ids
+        # face ID를 수동으로 조정한다.
         N, V = vertices.shape[:2]
         faces = faces + torch.arange(0, N, device=p1.device).unsqueeze(1).unsqueeze(1) * V
         faces = faces.reshape(-1, 3)
@@ -277,7 +277,7 @@ def create_skeleton_mesh(p1, p2, radius, color, resolution=4, return_merged=True
 
 def get_lines_of_my_frustum(frustum_points):
     """
-    frustum_points: (B, 8, 3), in (near {lu ru rd ld}, far {lu ru rd ld})
+    frustum_points: (B, 8, 3), (가까운 면 {lu ru rd ld}, 먼 면 {lu ru rd ld}) 순서
     """
     start_points = frustum_points[:, [0, 1, 2, 3, 0, 1, 2, 3, 4, 5, 6, 7]].cpu().numpy()
     end_points = frustum_points[:, [4, 5, 6, 7, 1, 2, 3, 0, 5, 6, 7, 4]].cpu().numpy()
@@ -287,7 +287,7 @@ def get_lines_of_my_frustum(frustum_points):
 def draw_colored_vec(wis3d, vec, name, radius=0.02, colors="r", starts=None, l=1.0):
     """
     Args:
-        vec: (3) or (L, 3), should be the same length as colors, like 'rgb'
+        vec: (3) 또는 (L, 3), 'rgb'처럼 colors와 길이가 같아야 한다.
     """
     if len(vec.shape) == 1:
         vec = vec[None]
@@ -295,7 +295,7 @@ def draw_colored_vec(wis3d, vec, name, radius=0.02, colors="r", starts=None, l=1
         assert len(vec.shape) == 2
 
     assert len(vec) == len(colors)
-    # split colors, 'rgb' to 'r', 'g', 'b'
+    # 'rgb'를 'r', 'g', 'b'로 나눈다.
     color_tensor = torch.zeros((len(colors), 3))
     c2rgb = {
         "r": torch.tensor([1, 0, 0]).float(),
@@ -314,7 +314,7 @@ def draw_colored_vec(wis3d, vec, name, radius=0.02, colors="r", starts=None, l=1
 
 def draw_T_w2c(wis3d, T_w2c, name, radius=0.01, all_in_one=True, l=0.1):
     """
-    Draw a camera trajectory in world coordinate.
+    world 좌표계에 camera trajectory를 그린다.
     Args:
         T_w2c: (L, 4, 4)
     """
@@ -334,14 +334,14 @@ def draw_T_w2c(wis3d, T_w2c, name, radius=0.01, all_in_one=True, l=0.1):
 
 def create_checkerboard_mesh(y=0.0, grid_size=1.0, bounds=((-3, -3), (3, 3))):
     """
-    example usage:
+    사용 예:
         vertices, faces, vertex_colors = create_checkerboard_mesh()
         wis3d.add_mesh(vertices=vertices, faces=faces, vertex_colors=vertex_colors, name="one")
     """
-    color1 = np.array([236, 240, 241], np.uint8)  # light
-    color2 = np.array([120, 120, 120], np.uint8)  # dark
+    color1 = np.array([236, 240, 241], np.uint8)  # 밝은 색
+    color2 = np.array([120, 120, 120], np.uint8)  # 어두운 색
 
-    # 扩大范围
+    # 범위를 grid 크기에 맞춰 확장한다.
     min_x, min_z = bounds[0]
     max_x, max_z = bounds[1]
     min_x = grid_size * np.floor(min_x / grid_size)
@@ -352,19 +352,19 @@ def create_checkerboard_mesh(y=0.0, grid_size=1.0, bounds=((-3, -3), (3, 3))):
     vertices = []
     faces = []
     vertex_colors = []
-    eps = 1e-4  # HACK: disable smooth color & double-side color artifacts of wis3d
+    eps = 1e-4  # HACK: Wis3D의 색상 보간과 양면 색상 artifact를 방지한다.
 
     for i, x in enumerate(np.arange(min_x, max_x, grid_size)):
         for j, z in enumerate(np.arange(min_z, max_z, grid_size)):
 
-            # Right-hand rule for normal direction
+            # normal 방향에 오른손 법칙을 적용한다.
             x += ((i % 2 * 2) - 1) * eps
             z += ((j % 2 * 2) - 1) * eps
             v1 = np.array([x, y, z])
             v2 = np.array([x, y, z + grid_size])
             v3 = np.array([x + grid_size, y, z + grid_size])
             v4 = np.array([x + grid_size, y, z])
-            offset = np.array([0, -eps, 0])  # For visualizing the down-side of the mesh
+            offset = np.array([0, -eps, 0])  # mesh 아랫면을 시각화하기 위한 offset
 
             vertices.extend([v1, v2, v3, v4, v1 + offset, v2 + offset, v3 + offset, v4 + offset])
             idx = len(vertices) - 8
@@ -372,14 +372,14 @@ def create_checkerboard_mesh(y=0.0, grid_size=1.0, bounds=((-3, -3), (3, 3))):
                 [
                     [idx, idx + 1, idx + 2],
                     [idx + 2, idx + 3, idx],
-                    [idx + 4, idx + 7, idx + 6],  # double-sided
-                    [idx + 6, idx + 5, idx + 4],  # double-sided
+                    [idx + 4, idx + 7, idx + 6],  # 양면
+                    [idx + 6, idx + 5, idx + 4],  # 양면
                 ]
             )
             vertex_color = color1 if (i + j) % 2 == 0 else color2
             vertex_colors.extend([vertex_color] * 8)
 
-    # To numpy.array and the shape should be (n, 3)
+    # numpy.array로 변환하며 shape은 (n, 3)이어야 한다.
     vertices = np.array(vertices)
     faces = np.array(faces)
     vertex_colors = np.array(vertex_colors)

@@ -15,43 +15,43 @@ class NetworkEncoderRoPE(nn.Module):
         # x
         output_dim=151,
         max_len=120,
-        # condition
+        # 조건
         cliffcam_dim=3,
         cam_angvel_dim=6,
         imgseq_dim=1024,
-        # intermediate
+        # 중간 표현
         latent_dim=512,
         num_layers=12,
         num_heads=8,
         mlp_ratio=4.0,
-        # output
+        # 출력
         pred_cam_dim=3,
         static_conf_dim=6,
-        # training
+        # 학습
         dropout=0.1,
-        # other
+        # 기타
         avgbeta=True,
     ):
         super().__init__()
         self.num_2d_joints = 23
-        # input
+        # 입력
         self.output_dim = output_dim
         self.max_len = max_len
 
-        # condition
+        # 조건
         self.cliffcam_dim = cliffcam_dim
         self.cam_angvel_dim = cam_angvel_dim
         self.imgseq_dim = imgseq_dim
 
-        # intermediate
+        # 중간 표현
         self.latent_dim = latent_dim
         self.num_layers = num_layers
         self.num_heads = num_heads
         self.dropout = dropout
 
-        # ===== build model ===== #
-        # Input (Kp2d)
-        # Main token: map d_obs 2 to 32
+        # ===== 모델 구성 ===== #
+        # 입력(Kp2d)
+        # main token: d_obs를 2차원에서 32차원으로 변환합니다.
         self.learned_pos_linear = nn.Linear(2, 32)
         self.learned_pos_params = nn.Parameter(
             torch.randn(self.num_2d_joints, 32), requires_grad=True
@@ -65,15 +65,15 @@ class NetworkEncoderRoPE(nn.Module):
 
         self._build_condition_embedder()
 
-        # Transformer
+        # Transformer 본체
         self.blocks = nn.ModuleList([
             EncoderRoPEBlock(self.latent_dim, self.num_heads, mlp_ratio=mlp_ratio, dropout=dropout)
             for _ in range(self.num_layers)
         ])
 
-        # Output heads
+        # 출력 head
         self.final_layer = Mlp(self.latent_dim, out_features=self.output_dim)
-        self.pred_cam_head = pred_cam_dim > 0  # keep extra_output for easy-loading old ckpt
+        self.pred_cam_head = pred_cam_dim > 0  # 이전 checkpoint를 쉽게 불러오도록 extra output을 유지합니다.
         if self.pred_cam_head:
             self.pred_cam_head = Mlp(self.latent_dim, out_features=pred_cam_dim)
             self.register_buffer("pred_cam_mean", torch.tensor([1.0606, -0.0027, 0.2702]), False)
@@ -109,27 +109,28 @@ class NetworkEncoderRoPE(nn.Module):
 
     def forward(self, length, obs=None, f_cliffcam=None, f_cam_angvel=None, f_imgseq=None):
         """
-        Args:
-            x: None we do not use it
+        인자:
+            x: 사용하지 않으므로 None
             timesteps: (B,)
-            length: (B), valid length of x, if None then use x.shape[2]
+            length: (B), x의 유효 길이. None이면 x.shape[2]를 사용합니다.
             f_imgseq: (B, L, C)
-            f_cliffcam: (B, L, 3), CLIFF-Cam parameters (bbx-detection in the full-image)
-            f_noisyobs: (B, L, C), nosiy pose observation
-            f_cam_angvel: (B, L, 6), Camera angular velocity
+            f_cliffcam: (B, L, 3), 전체 image의 bounding box detection으로 얻은
+                CLIFF-Cam 파라미터
+            f_noisyobs: (B, L, C), noisy pose observation
+            f_cam_angvel: (B, L, 6), camera angular velocity
         """
         B, L, J, C = obs.shape
         assert C == 3
 
-        # Main token from observation (2D pose)
+        # observation(2D pose)에서 main token을 만듭니다.
         obs = obs.clone()
         visible_mask = obs[..., [2]] > 0.5  # (B, L, J, 1)
-        obs[~visible_mask[..., 0]] = 0  # set low-conf to all zeros
+        obs[~visible_mask[..., 0]] = 0  # confidence가 낮은 값을 모두 0으로 설정합니다.
         f_obs = self.learned_pos_linear(obs[..., :2])  # (B, L, J, 32)
         f_obs = f_obs * visible_mask + self.learned_pos_params.repeat(B, L, 1, 1) * ~visible_mask
         x = self.embed_noisyobs(f_obs.view(B, L, -1))  # (B, L, J*32) -> (B, L, C)
 
-        # Condition
+        # 조건 feature
         f_to_add = []
         f_to_add.append(self.cliffcam_embedder(f_cliffcam))
         if hasattr(self, "cam_angvel_embedder"):
@@ -140,7 +141,7 @@ class NetworkEncoderRoPE(nn.Module):
         for f_delta in f_to_add:
             x = x + f_delta
 
-        # Setup length and make padding mask
+        # 길이를 설정하고 padding mask를 만듭니다.
         assert B == length.size(0)
         pmask = ~length_to_mask(length, L)  # (B, L)
 
@@ -155,25 +156,25 @@ class NetworkEncoderRoPE(nn.Module):
         else:
             attnmask = None
 
-        # Transformer
+        # Transformer 본체
         for block in self.blocks:
             x = block(x, attn_mask=attnmask, tgt_key_padding_mask=pmask)
 
-        # Output
+        # 출력
         sample = self.final_layer(x)  # (B, L, C)
         if self.avgbeta:
             betas = (sample[..., 126:136] * (~pmask[..., None])).sum(1) / length[:, None]  # (B, C)
             betas = repeat(betas, "b c -> b l c", l=L)
             sample = torch.cat([sample[..., :126], betas, sample[..., 136:]], dim=-1)
 
-        # Output (extra)
+        # 추가 출력
         pred_cam = None
         if self.pred_cam_head:
             pred_cam = self.pred_cam_head(x)
             pred_cam = pred_cam * self.pred_cam_std + self.pred_cam_mean
             torch.clamp_min_(
                 pred_cam[..., 0], 0.25
-            )  # min_clamp s to 0.25 (prevent negative prediction)
+            )  # 음수 예측을 막기 위해 s의 최솟값을 0.25로 제한합니다.
 
         static_conf_logits = None
         if self.static_conf_head:
@@ -188,7 +189,7 @@ class NetworkEncoderRoPE(nn.Module):
         return output
 
 
-# Add to MainStore
+# MainStore에 등록합니다.
 group_name = "network/gvhmr"
 MainStore.store(
     name="relative_transformer",

@@ -22,7 +22,7 @@ class SmplLite(nn.Module):
     ):
         super().__init__()
 
-        # Load the model
+        # 모델을 불러온다.
         model_path = Path(model_path)
         if model_path.is_dir():
             smpl_path = Path(model_path) / f"SMPL_{gender.upper()}.pkl"
@@ -49,7 +49,7 @@ class SmplLite(nn.Module):
         J_regressor = to_tensor(to_np(data_struct.J_regressor)).float()
         self.register_buffer("J_regressor", J_regressor, False)
 
-        # posedirs, (54*9, V, 3), note that the first global_orient is not included
+        # posedirs, (54*9, V, 3), 첫 global_orient는 포함하지 않는다.
         posedirs = to_tensor(to_np(data_struct.posedirs)).float()  # (V, 3, 54*9)
         posedirs = rearrange(posedirs, "v c n -> n v c")
         self.register_buffer("posedirs", posedirs, False)
@@ -64,7 +64,7 @@ class SmplLite(nn.Module):
         self.register_buffer("parents", parents, False)
 
     def register_fast_skeleton_computing_buffers(self):
-        # For fast computing of skeleton under beta
+        # beta가 주어진 skeleton을 빠르게 계산하기 위한 buffer
         J_template = self.J_regressor @ self.v_template  # (J, 3)
         J_shapedirs = torch.einsum("jv, vcd -> jcd", self.J_regressor, self.shapedirs)  # (J, 3, 10)
         self.register_buffer("J_template", J_template, False)
@@ -81,23 +81,23 @@ class SmplLite(nn.Module):
         transl,
     ):
         """
-        Args:
+        인자:
             body_pose: (B, L, 63)
             betas: (B, L, 10)
             global_orient: (B, L, 3)
             transl: (B, L, 3)
-        Returns:
+        반환:
             vertices: (B, L, V, 3)
         """
-        # 1. Convert [global_orient, body_pose] to rot_mats
+        # 1. [global_orient, body_pose]를 rot_mats로 변환한다.
         full_pose = torch.cat([global_orient, body_pose], dim=-1)
         rot_mats = axis_angle_to_matrix(full_pose.reshape(*full_pose.shape[:-1], full_pose.shape[-1] // 3, 3))
 
-        # 2. Forward Kinematics
+        # 2. Forward Kinematics를 계산한다.
         J = self.get_skeleton(betas)  # (*, 55, 3)
         A = batch_rigid_transform_v2(rot_mats, J, self.parents)[1]
 
-        # 3. Canonical v_posed = v_template + shaped_offsets + pose_offsets
+        # 3. canonical v_posed = v_template + shaped_offsets + pose_offsets를 계산한다.
         pose_feature = rot_mats[..., 1:, :, :] - rot_mats.new([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
         pose_feature = pose_feature.view(*pose_feature.shape[:-3], -1)  # (*, 55*3*3)
         v_posed = (
@@ -107,11 +107,11 @@ class SmplLite(nn.Module):
         )
         del pose_feature, rot_mats, full_pose
 
-        # 4. Skinning
+        # 4. Skinning을 적용한다.
         T = einsum(self.lbs_weights, A, "v j, ... j c d -> ... v c d")
         verts = einsum(T[..., :3, :3], v_posed, "... v c d, ... v d -> ... v c") + T[..., :3, 3]
 
-        # 5. Translation
+        # 5. Translation을 적용한다.
         verts = verts + transl[..., None, :]
         return verts
 
@@ -120,7 +120,7 @@ class SmplxLiteJ24(SmplLite):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Compute mapping
+        # mapping을 계산한다.
         smpl2j24 = self.J_regressor  # (24, 6890)
 
         jids, smplx_vids = torch.where(smpl2j24 != 0)
@@ -129,15 +129,15 @@ class SmplxLiteJ24(SmplLite):
             interestd[idx, jid] = smpl2j24[jid, smplx_vid]
         self.register_buffer("interestd", interestd, False)  # (236, 24)
 
-        # Update to vertices of interest
+        # 필요한 vertex만 남긴다.
         self.v_template = self.v_template[smplx_vids].clone()  # (V', 3)
         self.shapedirs = self.shapedirs[smplx_vids].clone()  # (V', 3, K)
         self.posedirs = self.posedirs[:, smplx_vids].clone()  # (K, V', 3)
         self.lbs_weights = self.lbs_weights[smplx_vids].clone()  # (V', J)
 
     def forward(self, body_pose, betas, global_orient, transl):
-        """Returns: joints (*, J, 3). (B, L) or  (B,) are both supported."""
-        # Use super class's forward to get verts
+        """joint (*, J, 3)를 반환한다. (B, L)과 (B,)를 모두 지원한다."""
+        # 상위 클래스의 forward로 vertex를 구한다.
         verts = super().forward(body_pose, betas, global_orient, transl)  # (*, 236, 3)
         joints = einsum(self.interestd, verts, "v j, ... v c -> ... j c")
         return joints

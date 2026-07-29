@@ -18,39 +18,38 @@ from hmr4d.utils.wis3d_utils import make_wis3d, add_motion_as_lines
 
 @autocast(enabled=False)
 def pp_static_joint(outputs, endecoder: EnDecoder):
-    # this function only changes the global root translation to be
-    # consistent with the predicted stationary joint labels
-    # Global FK
+    # 예측한 stationary joint label과 일치하도록 global root translation만 변경합니다.
+    # global forward kinematics를 계산합니다.
     pred_w_j3d = endecoder.fk_v2(**outputs["pred_smpl_params_global"])
     L = pred_w_j3d.shape[1]
     joint_ids = [7, 10, 8, 11, 20, 21]  # [L_Ankle, L_foot, R_Ankle, R_foot, L_wrist, R_wrist]
     pred_j3d_static = pred_w_j3d.clone()[:, :, joint_ids]  # (B, L, J, 3)
 
-    ######## update overall movement with static info, and make displacement ~[0,0,0]
+    # static 정보를 사용해 전체 움직임을 갱신하고 displacement가 [0, 0, 0]에 가까워지게 합니다.
     pred_j_disp = pred_j3d_static[:, 1:] - pred_j3d_static[:, :-1]  # (B, L-1, J, 3)
 
     static_conf_logits = outputs["static_conf_logits"][:, :-1].clone()
-    static_label_ = static_conf_logits > 0  # (B, L-1, J) # avoid non-contact frame
-    # for joints that are predicted to be not static, set static_conf_logits to large negative value
-    static_conf_logits = static_conf_logits.float() - (~static_label_ * 1e6)  # fp16 cannot go through softmax
-    is_static = static_label_.sum(dim=-1) > 0  # (B, L-1) True if at least one joint is static
-    # softmax sets non static values to zero cuz they are large negative
-    # compute a single displacements per frame as weighted avg
-    # joints predicted as static have a high weight, non static joints zero weight
+    static_label_ = static_conf_logits > 0  # (B, L-1, J) non-contact frame을 제외합니다.
+    # static이 아니라고 예측된 joint에는 매우 작은 static confidence logit을 부여합니다.
+    static_conf_logits = static_conf_logits.float() - (~static_label_ * 1e6)  # FP16은 softmax를 통과할 수 없습니다.
+    is_static = static_label_.sum(dim=-1) > 0  # (B, L-1) 하나 이상의 joint가 static이면 True입니다.
+    # 매우 작은 값 때문에 softmax에서 non-static joint의 가중치는 0이 됩니다.
+    # frame별 displacement 하나를 가중 평균으로 계산합니다.
+    # static joint에는 높은 가중치를, non-static joint에는 0의 가중치를 사용합니다.
     pred_disp = pred_j_disp * static_conf_logits[..., None].softmax(dim=-2)  # (B, L-1, J, 3)
     pred_disp = pred_disp * is_static[..., None, None]  # (B, L-1, J, 3)
-    # avg displacement of joints that are predicted to be static
-    # need to "cancel out" this movement such that the joints are static
-    # do this by adjusting global translation!
+    # static으로 예측된 joint의 평균 displacement를 구합니다.
+    # joint가 정지하도록 이 움직임을 상쇄해야 합니다.
+    # 이를 위해 global translation을 조정합니다.
     pred_disp = pred_disp.sum(-2)  # (B, L-1, 3)
     ####################
 
-    # Overwrite results:
-    if False:  # for-loop
+    # 결과를 덮어씁니다.
+    if False:  # for-loop 구현
         post_w_transl = outputs["pred_smpl_params_global"]["transl"].clone()  # (B, L, 3)
         for i in range(1, L):
             post_w_transl[:, i:] -= pred_disp[:, i - 1 : i]
-    else:  # vectorized
+    else:  # vectorized 구현
         pred_w_transl = outputs["pred_smpl_params_global"]["transl"].clone()  # (B, L, 3)
         pred_w_disp = pred_w_transl[:, 1:] - pred_w_transl[:, :-1]  # (B, L-1, 3)
         pred_w_disp_new = pred_w_disp - pred_disp
@@ -58,9 +57,9 @@ def pp_static_joint(outputs, endecoder: EnDecoder):
         post_w_transl[..., 0] = gaussian_smooth(post_w_transl[..., 0], dim=-1)
         post_w_transl[..., 2] = gaussian_smooth(post_w_transl[..., 2], dim=-1)
 
-    # Put the sequence on the ground by -min(y), this does not consider foot height, for o3d vis
+    # Open3D 시각화를 위해 -min(y)만큼 이동해 sequence를 지면에 놓습니다. 발 높이는 고려하지 않습니다.
     post_w_j3d = pred_w_j3d - pred_w_transl.unsqueeze(-2) + post_w_transl.unsqueeze(-2)
-    ground_y = post_w_j3d[..., 1].flatten(-2).min(dim=-1)[0]  # (B,)  Minimum y value
+    ground_y = post_w_j3d[..., 1].flatten(-2).min(dim=-1)[0]  # (B,) 최소 y값
     post_w_transl[..., 1] -= ground_y
 
     return post_w_transl
@@ -68,8 +67,8 @@ def pp_static_joint(outputs, endecoder: EnDecoder):
 
 @autocast(enabled=False)
 def pp_static_joint_cam(outputs, endecoder: EnDecoder):
-    """Use static joint and static camera assumption to postprocess the global transl"""
-    # input
+    """static joint와 static camera 가정을 사용해 global translation을 보정합니다."""
+    # 입력
     pred_smpl_params_incam = outputs["pred_smpl_params_incam"].copy()
     pred_smpl_params_global = outputs["pred_smpl_params_global"]
     static_conf_logits = outputs["static_conf_logits"].clone()[:, :-1]  # (B, L-1, J)
@@ -77,13 +76,13 @@ def pp_static_joint_cam(outputs, endecoder: EnDecoder):
     B, L = pred_smpl_params_incam["transl"].shape[:2]
     assert B == 1
 
-    # FK
+    # forward kinematics를 계산합니다.
     pred_w_j3d = endecoder.fk_v2(**pred_smpl_params_global)  # (B, L, J, 3)
-    # smooth incam results, as this could be noisy
+    # camera 좌표계 결과에는 noise가 있을 수 있으므로 smoothing합니다.
     pred_smpl_params_incam["transl"] = gaussian_smooth(pred_smpl_params_incam["transl"], sigma=5, dim=-2)
     pred_c_j3d = endecoder.fk_v2(**pred_smpl_params_incam)  # (B, L, J, 3)
 
-    # compute T_c2w (static) from first frame
+    # 첫 frame에서 static T_c2w를 계산합니다.
     R_gv = axis_angle_to_matrix(pred_smpl_params_global["global_orient"][:, 0])  # (B, 3, 3)
     R_c = axis_angle_to_matrix(pred_smpl_params_incam["global_orient"][:, 0])  # (B, 3, 3)
     R_c2w = R_gv @ R_c.mT  # (B, 3, 3)
@@ -91,10 +90,10 @@ def pp_static_joint_cam(outputs, endecoder: EnDecoder):
     T_c2w = transform_mat(R_c2w, t_c2w)  # (B, 4, 4)
     pred_c_j3d_in_w = apply_T_on_points(pred_c_j3d, T_c2w[:, None])
 
-    # 1. Make transl similar to incam
+    # 1. translation을 camera 좌표계 결과와 유사하게 만듭니다.
     post_w_transl = pred_smpl_params_global["transl"].clone()  # (B, L, 3)
     post_w_j3d = pred_w_j3d.clone()  # (B, L, J, 3)
-    cp_thr = torch.tensor([0.25, 0.25, 0.25]).to(post_w_j3d)  # Only update very bad pred
+    cp_thr = torch.tensor([0.25, 0.25, 0.25]).to(post_w_j3d)  # 오차가 매우 큰 예측만 갱신합니다.
     for i in range(1, L):
         cp_diff = post_w_j3d[:, i, 0] - pred_c_j3d_in_w[:, i, 0]  # (B, 3)
         cp_diff = cp_diff * ~((cp_diff > -cp_thr) * (cp_diff < cp_thr))
@@ -102,25 +101,25 @@ def pp_static_joint_cam(outputs, endecoder: EnDecoder):
         post_w_transl[:, i:] -= cp_diff
         post_w_j3d[:, i:] -= (cp_diff)[:, None, None]
 
-    # 1. Make stationary joint stay stationary
+    # 2. stationary joint가 계속 정지하도록 만듭니다.
     # pred_j3d_static = pred_w_j3d.clone()[:, :, joint_ids]  # (B, L, J, 3)
     pred_j3d_static = post_w_j3d[:, :, joint_ids]  # (B, L, J, 3)
     pred_j_disp = pred_j3d_static[:, 1:] - pred_j3d_static[:, :-1]  # (B, L-1, J, 3)
 
     static_label = static_conf_logits.sigmoid() > 0.8  # (B, L-1, J)
     static_label_sumJ = static_label.sum(-1, keepdim=True)  # (B, L-1, 1)
-    static_label_sumJ = torch.clamp_min(static_label_sumJ, 1)  # replace 0 with 1
+    static_label_sumJ = torch.clamp_min(static_label_sumJ, 1)  # 0을 1로 바꿉니다.
     pred_disp_sumJ = (pred_j_disp * static_label[..., None]).sum(-2)  # (B, L-1, 3)
     pred_disp = pred_disp_sumJ / static_label_sumJ  # (B, L-1, 3)
-    pred_disp[:, :, 1] = 0  # do not modify y
+    pred_disp[:, :, 1] = 0  # y축은 수정하지 않습니다.
 
-    # Overwrite results (for-loop)
+    # for-loop로 결과를 덮어씁니다.
     for i in range(1, L):
         post_w_transl[:, i:] -= pred_disp[:, [i - 1]]
         post_w_j3d[:, i:] -= pred_disp[:, [i - 1], None]
 
-    # Put the sequence on the ground by -min(y), this does not consider foot height, for o3d vis
-    ground_y = post_w_j3d[..., 1].flatten(-2).min(dim=-1)[0]  # (B,)  Minimum y value
+    # Open3D 시각화를 위해 -min(y)만큼 이동해 sequence를 지면에 놓습니다. 발 높이는 고려하지 않습니다.
+    ground_y = post_w_j3d[..., 1].flatten(-2).min(dim=-1)[0]  # (B,) 최소 y값
     post_w_transl[..., 1] -= ground_y
 
     return post_w_transl
@@ -131,20 +130,20 @@ def process_ik(outputs, endecoder):
     static_conf = outputs["static_conf_logits"].sigmoid()  # (B, L, J)
     post_w_j3d, local_mat, post_w_mat = endecoder.fk_v2(**outputs["pred_smpl_params_global"], get_intermediate=True)
 
-    # sebas rollout merge
-    # go through every frame and then set global joint position
-    # to be the same as in last frame if predicted as static (weighted avg between last and current)
-    # afterwards perform inverse kinematics to obtain new local joint rotations.
+    # Sebas 방식의 rollout 병합
+    # 모든 frame을 순회하며, static으로 예측된 joint의 global position을
+    # 직전 frame과 같게 설정합니다(직전 값과 현재 값의 가중 평균).
+    # 이후 inverse kinematics로 새로운 local joint rotation을 구합니다.
     joint_ids = [7, 10, 8, 11, 20, 21]  # [L_Ankle, L_foot, R_Ankle, R_foot, L_wrist, R_wrist]
     post_target_j3d = post_w_j3d.clone()
     for i in range(1, post_w_j3d.size(1)):
         prev = post_target_j3d[:, i - 1, joint_ids]
         this = post_w_j3d[:, i, joint_ids]
         c_prev = static_conf[:, i - 1, :, None]
-        # weighted avg between last and current frame weighted by pred static conf
+        # 예측한 static confidence로 직전 frame과 현재 frame의 가중 평균을 구합니다.
         post_target_j3d[:, i, joint_ids] = prev * c_prev + this * (1 - c_prev)
 
-    # ik
+    # inverse kinematics를 계산합니다.
     global_rot = matrix.get_rotation(post_w_mat)
     parents = [-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19]
     left_leg_chain = [0, 1, 4, 7, 10]

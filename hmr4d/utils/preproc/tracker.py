@@ -25,13 +25,13 @@ class Tracker:
         track_history = []
         cfg = {
             "device": "cuda",
-            "conf": 0.5,  # default 0.25, wham 0.5
-            "classes": 0,  # human
+            "conf": 0.5,  # 기본값은 0.25이고 WHAM은 0.5를 사용합니다.
+            "classes": 0,  # 사람 class
             "verbose": False,
             "stream": True,
         }
         results = self.yolo.track(video_path, **cfg)
-        # frame-by-frame tracking
+        # frame 단위 tracking
         track_history = []
         for result in tqdm(results, total=get_video_lwh(video_path)[0], desc="YoloV8 Tracking"):
             if result.boxes.id is not None:
@@ -46,10 +46,10 @@ class Tracker:
 
     @staticmethod
     def sort_track_length(track_history, video_path):
-        """This handles the track history from YOLO tracker."""
+        """YOLO tracker의 track history를 정리합니다."""
         id_to_frame_ids = defaultdict(list)
         id_to_bbx_xyxys = defaultdict(list)
-        # parse to {det_id : [frame_id]}
+        # {det_id: [frame_id]} 형식으로 변환합니다.
         for frame_id, frame in enumerate(track_history):
             for det in frame:
                 id_to_frame_ids[det["id"]].append(frame_id)
@@ -57,11 +57,11 @@ class Tracker:
         for k, v in id_to_bbx_xyxys.items():
             id_to_bbx_xyxys[k] = np.array(v)
 
-        # Sort by length of each track (max to min)
+        # track 길이를 내림차순으로 정렬합니다.
         id_length = {k: len(v) for k, v in id_to_frame_ids.items()}
         id2length = dict(sorted(id_length.items(), key=lambda item: item[1], reverse=True))
 
-        # Sort by area sum (max to min)
+        # bounding box 면적 합계를 내림차순으로 정렬합니다.
         id_area_sum = {}
         l, w, h = get_video_lwh(video_path)
         for k, v in id_to_bbx_xyxys.items():
@@ -73,19 +73,19 @@ class Tracker:
         return id_to_frame_ids, id_to_bbx_xyxys, id_sorted
 
     def get_one_track(self, video_path):
-        # track
+        # tracking을 실행합니다.
         track_history = self.track(video_path)
 
-        # parse track_history & use top1 track
+        # track history를 해석하고 면적이 가장 큰 track을 사용합니다.
         id_to_frame_ids, id_to_bbx_xyxys, id_sorted = self.sort_track_length(track_history, video_path)
         track_id = id_sorted[0]
         frame_ids = torch.tensor(id_to_frame_ids[track_id])  # (N,)
         bbx_xyxys = torch.tensor(id_to_bbx_xyxys[track_id])  # (N, 4)
 
-        # interpolate missing frames
+        # 누락된 frame을 보간합니다.
         mask = frame_id_to_mask(frame_ids, get_video_lwh(video_path)[0])
-        bbx_xyxy_one_track = rearrange_by_mask(bbx_xyxys, mask)  # (F, 4), missing filled with 0
-        missing_frame_id_list = get_frame_id_list_from_mask(~mask)  # list of list
+        bbx_xyxy_one_track = rearrange_by_mask(bbx_xyxys, mask)  # (F, 4), 누락된 값은 0입니다.
+        missing_frame_id_list = get_frame_id_list_from_mask(~mask)  # list의 list
         bbx_xyxy_one_track = linear_interpolate_frame_ids(bbx_xyxy_one_track, missing_frame_id_list)
         assert (bbx_xyxy_one_track.sum(1) != 0).all()
 

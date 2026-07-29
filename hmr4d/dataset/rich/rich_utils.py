@@ -6,14 +6,14 @@ from pathlib import Path
 import json
 import time
 
-# ----- Meta sample utils ----- #
+# ----- Meta sample 유틸리티 ----- #
 
 
 def sample_idx2meta(idx2meta, sample_interval):
     """
-    1. remove frames that < 45
-    2. sample frames by sample_interval
-    3. sorted
+    1. 45보다 작은 frame을 제거합니다.
+    2. sample_interval 간격으로 frame을 샘플링합니다.
+    3. 결과를 정렬합니다.
     """
     idx2meta = [
         v
@@ -26,8 +26,8 @@ def sample_idx2meta(idx2meta, sample_interval):
 
 def remove_bbx_invisible_frame(idx2meta, img2gtbbx):
     raw_img_lu = np.array([0.0, 0.0])
-    raw_img_rb_type1 = np.array([4112.0, 3008.0]) - 1  # horizontal
-    raw_img_rb_type2 = np.array([3008.0, 4112.0]) - 1  # vertical
+    raw_img_rb_type1 = np.array([4112.0, 3008.0]) - 1  # 가로 image
+    raw_img_rb_type2 = np.array([3008.0, 4112.0]) - 1  # 세로 image
 
     idx2meta_new = []
     for meta in idx2meta:
@@ -47,17 +47,18 @@ def remove_extra_rules(idx2meta):
     return idx2meta
 
 
-# ----- Image utils ----- #
+# ----- Image 유틸리티 ----- #
 
 
 def compute_bbx(dataset, data):
     """
-    Use gt_smplh_params to compute bbx (w.r.t. original image resolution)
-    Args:
+    원본 image 해상도를 기준으로 gt_smplh_params에서 bounding box를 계산합니다.
+
+    인자:
         dataset: rich_pose.RichPose
         data: dict
 
-    # This function need extra scripts to run
+    # 이 함수를 실행하려면 아래 추가 설정이 필요합니다.
     from hmr4d.utils.smplx_utils import make_smplx
     self.smplh_male = make_smplx("rich-smplh", gender="male")
     self.smplh_female = make_smplx("rich-smplh", gender="female")
@@ -99,7 +100,7 @@ def squared_crop_and_resize(dataset, img, bbx_lurb, dst_size=224, state=None):
     center_x = (bbx_lurb[0] + bbx_lurb[2]) / 2 + center_rand[0]
     center_y = (bbx_lurb[1] + bbx_lurb[3]) / 2 + center_rand[1]
     ori_half_size = max(bbx_lurb[2] - bbx_lurb[0], bbx_lurb[3] - bbx_lurb[1]) / 2
-    ori_half_size *= 1 + 0.15 + dataset.BBX_ZOOM * np.random.random()  # zoom
+    ori_half_size *= 1 + 0.15 + dataset.BBX_ZOOM * np.random.random()  # zoom 증강
 
     src = np.array(
         [
@@ -120,21 +121,21 @@ def squared_crop_and_resize(dataset, img, bbx_lurb, dst_size=224, state=None):
     return img_crop, bbx_new, A
 
 
-# Augment bbx
+# bounding box 증강
 def get_augmented_square_bbx(bbx_lurb, per_shift=0.1, per_zoomout=0.2, base_zoomout=0.15, state=None):
     """
-    Args:
-        per_shift: in percent, maximum random shift
-        per_zoomout: in percent, maximum random zoom
+    인자:
+        per_shift: 백분율로 지정한 최대 무작위 이동량
+        per_zoomout: 백분율로 지정한 최대 무작위 zoom-out
     """
     if state is not None:
         np.random.set_state(state)
     maxsize_bbx = max(bbx_lurb[2] - bbx_lurb[0], bbx_lurb[3] - bbx_lurb[1])
-    # shift of center
+    # 중심 위치를 이동합니다.
     shift = maxsize_bbx * per_shift * (np.random.random(2) * 2 - 1)
     center_x = (bbx_lurb[0] + bbx_lurb[2]) / 2 + shift[0]
     center_y = (bbx_lurb[1] + bbx_lurb[3]) / 2 + shift[1]
-    # zoomout of half-size
+    # half-size를 기준으로 zoom-out합니다.
     halfsize_bbx = maxsize_bbx / 2
     halfsize_bbx *= 1 + base_zoomout + per_zoomout * np.random.random()
 
@@ -151,12 +152,12 @@ def get_augmented_square_bbx(bbx_lurb, per_shift=0.1, per_zoomout=0.2, base_zoom
 
 def get_squared_bbx_region_and_resize(frames, bbx_xys, dst_size=224):
     """
-    Args:
+    인자:
         frames: (F, H, W, 3)
         bbx_xys: (F, 3), xys
     """
     frames_np = frames.numpy() if isinstance(frames, torch.Tensor) else frames
-    bbx_xys = bbx_xys if isinstance(bbx_xys, torch.Tensor) else torch.tensor(bbx_xys)  # use tensor
+    bbx_xys = bbx_xys if isinstance(bbx_xys, torch.Tensor) else torch.tensor(bbx_xys)  # tensor로 통일합니다.
     srcs = torch.stack(
         [
             torch.stack([bbx_xys[:, 0] - bbx_xys[:, 2] / 2, bbx_xys[:, 1] - bbx_xys[:, 2] / 2], dim=-1),
@@ -176,7 +177,7 @@ def get_squared_bbx_region_and_resize(frames, bbx_xys, dst_size=224):
     return img_crops, As
 
 
-# ----- Camera utils ----- #
+# ----- Camera 유틸리티 ----- #
 
 
 def extract_cam_xml(xml_path="", dtype=torch.float32):
@@ -197,8 +198,8 @@ def extract_cam_xml(xml_path="", dtype=torch.float32):
 
 def get_cam2params(scene_info_root=None):
     """
-    Args:
-        scene_info_root: this could be repalced by path to scan_calibration
+    인자:
+        scene_info_root: scan_calibration 경로로 대체할 수 있습니다.
     """
     if scene_info_root is not None:
         cam_params = {}
@@ -217,13 +218,13 @@ def get_cam2params(scene_info_root=None):
     return cam_params
 
 
-# ----- Parse Raw Resource ----- #
+# ----- 원본 resource 해석 ----- #
 
 
 def get_w2az_sahmr():
     """
-    Returns:
-        w2az_sahmr: dict, {scan_name: Tw2az}, Tw2az is a tensor of (4,4)
+    반환:
+        w2az_sahmr: ``{scan_name: Tw2az}`` dictionary이며 Tw2az는 (4, 4) tensor입니다.
     """
     fn = Path(__file__).parent / "resource/w2az_sahmr.json"
     with open(fn, "r") as f:
@@ -234,20 +235,21 @@ def get_w2az_sahmr():
 
 def has_multi_persons(seq_name):
     """
-    Args:
-        seq_name: e.g. LectureHall_009_021_reparingprojector1
+    인자:
+        seq_name: 예: LectureHall_009_021_reparingprojector1
     """
     return len(seq_name.split("_")) != 3
 
 
 def parse_seqname_info(skip_multi_persons=True):
     """
-    This function will skip multi-person sequences.
-    Returns:
+    여러 사람이 등장하는 sequence를 건너뜁니다.
+
+    반환:
         sname_to_info: scan_name, subject_id, gender, cam_ids
     """
     fns = [Path(__file__).parent / f"resource/{split}.txt" for split in ["train", "val", "test"]]
-    # Train / Val&Test Header:
+    # train / validation 및 test header:
     # sequence_name	capture_name	scan_name	id	moving_cam	gender	view_id
     # sequence_name	capture_name	scan_name	id	moving_cam	gender	scene	action/scene-interaction	subjects	view_id
     sname_to_info = {}
@@ -282,14 +284,14 @@ def get_seqnames_of_split(splits=["train"], skip_multi_persons=True):
 
 
 def get_seqname_to_imgrange():
-    """Each sequence has a different range of image ids."""
+    """sequence별로 서로 다른 image ID 범위를 구합니다."""
     from tqdm import tqdm
 
     split_seqnames = {split: get_seqnames_of_split(split) for split in ["train", "val", "test"]}
     seqname_to_imgrange = {}
     for split in ["train", "val", "test"]:
         for seqname in tqdm(split_seqnames[split]):
-            img_root = Path("inputs/RICH") / "images_ds4" / split  # compressed (not original)
+            img_root = Path("inputs/RICH") / "images_ds4" / split  # 압축된 image이며 원본은 아닙니다.
             img_dir = img_root / seqname
             img_names = sorted([n.name for n in img_dir.glob("**/*.jpeg")])
             if len(img_names) == 0:
@@ -300,7 +302,7 @@ def get_seqname_to_imgrange():
     return seqname_to_imgrange
 
 
-# ----- Compose keys ----- #
+# ----- Key 구성 ----- #
 
 
 def get_img_key(seq_name, cam_id, f_id):
@@ -311,7 +313,7 @@ def get_img_key(seq_name, cam_id, f_id):
 
 def get_seq_cam_fn(img_root, seq_name, cam_id):
     """
-    Args:
+    인자:
         img_root: "inputs/RICH/images_ds4/train"
     """
     img_root = Path(img_root)
@@ -321,7 +323,7 @@ def get_seq_cam_fn(img_root, seq_name, cam_id):
 
 def get_img_fn(img_root, seq_name, cam_id, f_id):
     """
-    Args:
+    인자:
         img_root: "inputs/RICH/images_ds4/train"
     """
     img_root = Path(img_root)
@@ -330,7 +332,7 @@ def get_img_fn(img_root, seq_name, cam_id, f_id):
     return str(img_root / f"{seq_name}/cam_{cam_id:02d}" / f"{f_id:05d}_{cam_id:02d}.jpeg")
 
 
-# ----- WHAM ----- #
+# ----- WHAM 변환 ----- #
 
 
 def get_cam_key_wham_vid(vid):

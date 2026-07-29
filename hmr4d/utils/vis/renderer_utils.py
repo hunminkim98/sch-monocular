@@ -4,7 +4,7 @@ import numpy as np
 
 
 def simple_render_mesh(render_dict):
-    """Render an camera-space mesh, blank background"""
+    """camera 좌표계 mesh를 빈 배경에 render한다."""
     width, height, focal_length = render_dict["whf"]
     faces = render_dict["faces"]
     verts = render_dict["verts"]
@@ -19,7 +19,7 @@ def simple_render_mesh(render_dict):
 
 
 def simple_render_mesh_background(render_dict, VI=50, colors=[0.8, 0.8, 0.8], opaque_f=1.0):
-    """Render an camera-space mesh, blank background"""
+    """camera 좌표계 mesh를 배경 위에 render한다."""
     K = render_dict["K"]
     faces = render_dict["faces"]
     verts = render_dict["verts"]

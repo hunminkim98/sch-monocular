@@ -18,13 +18,13 @@ def draw_bbx_xys_on_image(bbx_xys, image, conf=True):
     image = image.copy()
     lu_point = (bbx_xys[:2] - bbx_xys[2:] / 2).astype(int)
     rd_point = (bbx_xys[:2] + bbx_xys[2:] / 2).astype(int)
-    color = (255, 178, 102) if conf == True else (128, 128, 128)  # orange or gray
+    color = (255, 178, 102) if conf == True else (128, 128, 128)  # 주황색 또는 회색
     image = cv2.rectangle(image, lu_point, rd_point, color, 2)
     return image
 
 
 def draw_bbx_xys_on_image_batch(bbx_xys_batch, image_batch, conf=None):
-    """conf: if provided, list of bool"""
+    """conf가 주어지면 bool 목록이어야 한다."""
     use_conf = conf is not None
     bbx_xys_batch = to_numpy(bbx_xys_batch)
     assert len(bbx_xys_batch) == len(image_batch)
@@ -40,7 +40,7 @@ def draw_bbx_xys_on_image_batch(bbx_xys_batch, image_batch, conf=None):
 def draw_bbx_xyxy_on_image(bbx_xys, image, conf=True):
     bbx_xys = to_numpy(bbx_xys)
     image = to_numpy(image)
-    color = (255, 178, 102) if conf == True else (128, 128, 128)  # orange or gray
+    color = (255, 178, 102) if conf == True else (128, 128, 128)  # 주황색 또는 회색
     image = cv2.rectangle(image, (int(bbx_xys[0]), int(bbx_xys[1])), (int(bbx_xys[2]), int(bbx_xys[3])), color, 2)
     return image
 
@@ -48,8 +48,8 @@ def draw_bbx_xyxy_on_image(bbx_xys, image, conf=True):
 def draw_bbx_xyxy_on_image_batch(bbx_xyxy_batch, image_batch, mask=None, conf=None):
     """
     Args:
-        conf: if provided, list of bool, mutually exclusive with mask
-        mask: whether to draw, historically used
+        conf: 주어지면 bool 목록이며 mask와 함께 사용할 수 없다.
+        mask: 그릴지 여부를 나타내며 이전 구현과의 호환을 위해 사용한다.
     """
     if mask is not None:
         assert conf is None
@@ -209,7 +209,7 @@ def draw_coco16_skeleton(img, keypoints, conf_thr=0, kpt_s=6, bone_s=4):
 
 
 def draw_coco18_skeleton(img, keypoints, conf_thr=0, kpt_s=6, bone_s=4):
-    # openpose as used in 3dpw
+    # 3DPW에서 사용하는 OpenPose 형식
     use_conf_thr = True if keypoints.shape[1] == 3 else False
     img = img.copy()
     # fmt:off

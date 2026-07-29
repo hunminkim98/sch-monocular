@@ -15,7 +15,7 @@ from collections import deque
 import sys
 from hmr4d.configs import MainStore, builds
 
-# ========== Helper functions ========== #
+# ========== 보조 함수 ========== #
 
 
 def format_num(n):
@@ -25,28 +25,28 @@ def format_num(n):
 
 
 def convert_kwargs_to_str(**kwargs):
-    # Sort in alphabetical order to be more deterministic
+    # 항상 같은 결과가 나오도록 알파벳순으로 정렬한다.
     postfix = OrderedDict([])
     for key in sorted(kwargs.keys()):
         new_key = key.split("/")[-1]
         postfix[new_key] = kwargs[key]
-    # Preprocess stats according to datatype
+    # 자료형에 따라 통계 값을 전처리한다.
     for key in postfix.keys():
-        # Number: limit the length of the string
+        # 숫자: 문자열 길이를 제한한다.
         if isinstance(postfix[key], Number):
             postfix[key] = format_num(postfix[key])
-        # Else for any other type, try to get the string conversion
+        # 그 외 자료형은 문자열로 변환한다.
         elif not isinstance(postfix[key], str):
             postfix[key] = str(postfix[key])
-        # Else if it's a string, don't need to preprocess anything
-    # Stitch together to get the final postfix
+        # 문자열이면 별도 전처리가 필요 없다.
+    # 최종 postfix 문자열을 조합한다.
     postfix = ", ".join(key + "=" + postfix[key].strip() for key in postfix.keys())
     return postfix
 
 
 def convert_t_to_str(t):
-    """Convert time in second to string in format hour:minute:second.
-    If hour is 0, don't show it. Always show minute and second.
+    """초 단위 시간을 시:분:초 형식의 문자열로 변환한다.
+    시간이 0이면 표시하지 않고, 분과 초는 항상 표시한다.
     """
     t_str = timedelta(seconds=t)  # e.g. 0:00:00.704186
     t_str = str(t_str).split(".")[0]  # e.g. 0:00:00
@@ -58,7 +58,7 @@ def convert_t_to_str(t):
 class MyTQDMProgressBar(TQDMProgressBar, pl.Callback):
     def init_train_tqdm(self):
         bar = Tqdm(
-            desc="Training",  # this will be overwritten anyway
+            desc="Training",  # 이후에 덮어쓰이는 초기값이다.
             bar_format="{desc}{percentage:3.0f}%[{bar:10}][{n_fmt}/{total_fmt}, {elapsed}→{remaining},{rate_fmt}]{postfix}",
             position=(2 * self.process_position),
             disable=self.is_disabled,
@@ -70,22 +70,22 @@ class MyTQDMProgressBar(TQDMProgressBar, pl.Callback):
 
     @rank_zero_only
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        # this function also updates the main progress bar
+        # 상위 함수에서 기본 진행 표시줄도 갱신한다.
         super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)
-        # in this function, we only set the postfix of the main progress bar
+        # 여기서는 기본 진행 표시줄의 postfix만 설정한다.
         n = batch_idx + 1
         if self._should_update(n, self.train_progress_bar.total):
-            # Set post-fix string
-            # 1. maximum GPU usage
+            # postfix 문자열을 설정한다.
+            # 1. 최대 GPU 사용량
             max_mem = torch.cuda.max_memory_allocated() / 1024.0 / 1024.0 / 1024.0
             post_fix_str = f"maxGPU={max_mem:.1f}GB"
 
-            # 2. training metrics
+            # 2. 학습 지표
             training_metrics = self.get_metrics(trainer, pl_module)
             training_metrics.pop("v_num", None)
             post_fix_str += ", " + convert_kwargs_to_str(**training_metrics)
 
-            # extra message if applicable
+            # 추가 메시지가 있으면 함께 표시한다.
             if "message" in outputs:
                 post_fix_str += ", " + outputs["message"]
 
@@ -95,28 +95,28 @@ class MyTQDMProgressBar(TQDMProgressBar, pl.Callback):
 class ProgressReporter(ProgressBar, pl.Callback):
     def __init__(
         self,
-        log_every_percent: float = 0.1,  # report interval
-        exp_name=None,  # if None, use pl_module.exp_name or "Unnamed Experiment"
-        data_name=None,  # if None, use pl_module.exp_name or "Unknown Data"
+        log_every_percent: float = 0.1,  # 보고 간격
+        exp_name=None,  # None이면 pl_module.exp_name 또는 "Unnamed Experiment"를 사용한다.
+        data_name=None,  # None이면 pl_module.data_name 또는 "Unknown Data"를 사용한다.
         **kwargs,
     ):
         super().__init__()
         self.enable = True
-        # 1. Store experiment meta data.
+        # 1. 실험 메타데이터를 저장한다.
         self.log_every_percent = log_every_percent
         self.exp_name = exp_name
         self.data_name = data_name
         self.batch_time_queue = deque(maxlen=5)
         self.start_prompt = "🚀"
         self.finish_prompt = "✅"
-        # 2. Utils for evaluation
+        # 2. 평가용 상태
         self.n_finished = 0
 
     def disable(self):
         self.enable = False
 
     def setup(self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str) -> None:
-        # Connect to the trainer object.
+        # trainer 객체와 연결한다.
         super().setup(trainer, pl_module, stage)
         self.stage = stage
         self.time_exp_start = time()
@@ -137,19 +137,19 @@ class ProgressReporter(ProgressBar, pl.Callback):
         print(*args)
 
     def get_metrics(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> Dict[str, Union[str, float]]:
-        """Get metrics from trainer for progress bar."""
+        """진행 표시에 사용할 지표를 trainer에서 가져온다."""
         items = super().get_metrics(trainer, pl_module)
         items.pop("v_num", None)
         return items
 
     def _should_update(self, n_finished: int, total: int) -> bool:
         """
-        Rule: Log every `log_every_percent` percent, or the last batch.
+        `log_every_percent` 비율마다 또는 마지막 배치에서 로그를 기록한다.
         """
         log_interval = max(int(total * self.log_every_percent), 1)
         able = n_finished % log_interval == 0 or n_finished == total
         if log_interval > 10:
-            able = able or n_finished in [5, 10]  # always log
+            able = able or n_finished in [5, 10]  # 초기 진행 상황은 항상 기록한다.
         able = able and self.enable
         return able
 
@@ -163,30 +163,30 @@ class ProgressReporter(ProgressBar, pl.Callback):
 
     @rank_zero_only
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)  # don't forget this :)
+        super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)  # 기본 상태 갱신을 유지한다.
         total = self.total_train_batches
 
-        # Speed
+        # 속도
         n_finished = batch_idx + 1
         percent = 100 * n_finished / total
         time_current = time()
         self.batch_time_queue.append(time_current)
-        time_elapsed = time_current - self.time_train_epoch_start  # second
-        time_remaining = time_elapsed * (total - n_finished) / n_finished  # second
-        if len(self.batch_time_queue) == 1:  # cannot compute speed
+        time_elapsed = time_current - self.time_train_epoch_start  # 초
+        time_remaining = time_elapsed * (total - n_finished) / n_finished  # 초
+        if len(self.batch_time_queue) == 1:  # 아직 속도를 계산할 수 없다.
             speed = 1 / time_elapsed
         else:
             speed = (len(self.batch_time_queue) - 1) / (self.batch_time_queue[-1] - self.batch_time_queue[0])
 
-        # Skip if not update
+        # 갱신 시점이 아니면 건너뛴다.
         if not self._should_update(n_finished, total):
             return
 
-        # ===== Set Prefix string ===== #
-        # General
+        # ===== prefix 문자열 설정 ===== #
+        # 기본 설명
         desc = f"[Train]"
 
-        # Speed: Get elapsed time and estimated remaining time
+        # 속도: 경과 시간과 예상 잔여 시간을 계산한다.
         time_elapsed_str = convert_t_to_str(time_elapsed)
         time_remaining_str = convert_t_to_str(time_remaining)
         speed_str = f"{speed:.2f}it/s" if speed > 1 else f"{1/speed:.1f}s/it"
@@ -195,22 +195,22 @@ class ProgressReporter(ProgressBar, pl.Callback):
             f"[{n_finished:{n_digit}d}/{total}={percent:3.0f}%, {time_elapsed_str} → {time_remaining_str}, {speed_str}]"
         )
 
-        # ===== Set postfix string ===== #
-        # 1. maximum GPU usage
+        # ===== postfix 문자열 설정 ===== #
+        # 1. 최대 GPU 사용량
         max_mem = torch.cuda.max_memory_allocated() / 1024.0 / 1024.0 / 1024.0
         post_fix_str = f"maxGPU={max_mem:.1f}GB"
 
-        # 2. training step metrics
+        # 2. 학습 스텝 지표
         train_metrics = self.get_metrics(trainer, pl_module)
         train_metrics = {k: v for k, v in train_metrics.items() if ("train" in k and "epoch" not in k)}
         post_fix_str += ", " + convert_kwargs_to_str(**train_metrics)
 
-        # extra message if applicable
+        # 추가 메시지가 있으면 함께 표시한다.
         if "message" in outputs:
             post_fix_str += ", " + outputs["message"]
         post_fix_str = f"[{post_fix_str}]"
 
-        # ===== Output ===== #
+        # ===== 출력 ===== #
         bar_output = f"{desc}{desc_speed}{post_fix_str}"
         self.print(bar_output)
 
@@ -218,10 +218,10 @@ class ProgressReporter(ProgressBar, pl.Callback):
     def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         super().on_train_epoch_end(trainer, pl_module)
 
-        # Clear
+        # 상태를 비운다.
         self.batch_time_queue.clear()
 
-        # Estimate Epoch time
+        # 전체 epoch 소요 시간을 추정한다.
         n_finished = trainer.current_epoch + 1 - self.epoch_exp_start
         n_to_finish = trainer.max_epochs - trainer.current_epoch - 1
         time_current = time()
@@ -230,8 +230,8 @@ class ProgressReporter(ProgressBar, pl.Callback):
         time_elapsed_str = convert_t_to_str(time_elapsed)
         time_remaining_str = convert_t_to_str(time_remaining)
 
-        # Metrics
-        # training epoch metrics
+        # 지표
+        # 학습 epoch 지표
         train_metrics = self.get_metrics(trainer, pl_module)
         train_metrics = {k: v for k, v in train_metrics.items() if ("train" in k and "epoch" in k)}
         train_metrics_str = convert_kwargs_to_str(**train_metrics)
@@ -240,7 +240,7 @@ class ProgressReporter(ProgressBar, pl.Callback):
             f"{self.finish_prompt}[FIT][Epoch {trainer.current_epoch}] finished! {time_elapsed_str}→{time_remaining_str} | {train_metrics_str}"
         )
 
-    # ===== Validation/Test/Prediction ===== #
+    # ===== 검증/테스트/예측 ===== #
     @rank_zero_only
     def on_validation_epoch_start(self, trainer, pl_module):
         self.time_val_epoch_start = time()
@@ -253,41 +253,41 @@ class ProgressReporter(ProgressBar, pl.Callback):
         if not self._should_update(n_finished, total):
             return
 
-        # General
+        # 기본 설명
         desc = f"[Val]"
 
-        # Speed
+        # 속도
         percent = 100 * n_finished / total
         time_current = time()
-        time_elapsed = time_current - self.time_val_epoch_start  # second
-        time_remaining = time_elapsed * (total - n_finished) / n_finished  # second
+        time_elapsed = time_current - self.time_val_epoch_start  # 초
+        time_remaining = time_elapsed * (total - n_finished) / n_finished  # 초
         time_elapsed_str = convert_t_to_str(time_elapsed)
         time_remaining_str = convert_t_to_str(time_remaining)
         desc_speed = f"[{n_finished}/{total} ={percent:3.0f}%, {time_elapsed_str}→{time_remaining_str}]"
 
-        # Output
+        # 출력
         bar_output = f"{desc} {desc_speed}"
         self.print(bar_output)
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        # Reset
+        # 상태를 초기화한다.
         self.n_finished = 0
 
 
 class EmojiProgressReporter(ProgressBar, pl.Callback):
     def __init__(
         self,
-        refresh_rate_batch: Union[int, None] = 1,  # report interval of batch, set None to disable it
-        refresh_rate_epoch: int = 1,  # report interval of epoch
+        refresh_rate_batch: Union[int, None] = 1,  # 배치 보고 간격이며, None이면 비활성화한다.
+        refresh_rate_epoch: int = 1,  # epoch 보고 간격
         **kwargs,
     ):
         super().__init__()
         self.enable = True
-        # Store experiment meta data.
+        # 실험 메타데이터를 저장한다.
         self.refresh_rate_batch = refresh_rate_batch
         self.refresh_rate_epoch = refresh_rate_epoch
 
-        # Style of the progress bar.
+        # 진행 표시줄 스타일
         self.title_prompt = "📝"
         self.prog_prompt = "🚀"
         self.timer_prompt = "⌛️"
@@ -298,7 +298,7 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
         self.enable = False
 
     def setup(self, trainer: pl.Trainer, pl_module: pl.LightningModule, stage: str):
-        # Connect to the trainer object.
+        # trainer 객체와 연결한다.
         super().setup(trainer, pl_module, stage)
         self.stage = stage
         self.time_start_batch = None
@@ -313,34 +313,34 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
         print(*args)
 
     def get_metrics(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> Dict[str, Union[str, float]]:
-        """Get metrics from trainer for progress bar."""
+        """진행 표시에 사용할 지표를 trainer에서 가져온다."""
         items = super().get_metrics(trainer, pl_module)
         items.pop("v_num", None)
         return dict(sorted(items.items()))
 
     def _should_log_batch(self, n: int) -> bool:
-        # Disable batch log.
+        # 배치 로그를 비활성화한다.
         if self.refresh_rate_batch is None:
             return False
-        # Log at the first & last batch, and every `self.refresh_rate_batch` batches.
+        # 첫 배치, 마지막 배치, `self.refresh_rate_batch` 간격마다 기록한다.
         able = n % self.refresh_rate_batch == 0 or n == self.total_train_batches - 1
         able = able and self.enable
         return able
 
     def _should_log_epoch(self, n: int) -> bool:
-        # Log at the first & last epoch, and every `self.refresh_rate_epoch` epochs.
+        # 첫 epoch, 마지막 epoch, `self.refresh_rate_epoch` 간격마다 기록한다.
         able = n % self.refresh_rate_epoch == 0 or n == self.trainer.max_epochs - 1
         able = able and self.enable
         return able
 
     def timestamp_delta_to_str(self, timestamp_delta: float):
-        """Convert delta timestamp to string."""
+        """시간 차이를 읽기 쉬운 문자열로 변환한다."""
         time_rest = timedelta(seconds=timestamp_delta)
         hours, remainder = divmod(time_rest.seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         time_str = ""
 
-        # Check if the time is valid. Note that, if `hours` is visible, then `minutes` must be visible.
+        # 표시할 시간이 유효한지 확인한다. 시간이 표시되면 분도 함께 표시해야 한다.
         if hours <= 0:
             hours = None
             if minutes <= 0:
@@ -356,29 +356,29 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
     @rank_zero_only
     def on_train_batch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule, batch: Any, batch_idx: int):
         super().on_train_batch_start(trainer, pl_module, batch, batch_idx)
-        # Initialize some meta data.
+        # 메타데이터를 초기화한다.
         if self.time_start_batch is None:
             self.time_start_batch = datetime.now().timestamp()
 
     @rank_zero_only
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)  # don't forget this :)
-        # Get some meta data.
+        super().on_train_batch_end(trainer, pl_module, outputs, batch, batch_idx)  # 기본 상태 갱신을 유지한다.
+        # 메타데이터를 가져온다.
         epoch_idx = trainer.current_epoch
         percent = 100 * (batch_idx + 1) / (self.total_train_batches + 1)
         metrics = self.get_metrics(trainer, pl_module)
 
-        # Current time.
+        # 현재 시간
         time_cur_stamp = datetime.now().timestamp()
         time_cur_str = datetime.fromtimestamp(time_cur_stamp).strftime("%m-%d %H:%M:%S")
-        # Rest time.
+        # 잔여 시간
         time_rest_stamp = (time_cur_stamp - self.time_start_batch) * (100 - percent) / percent
         time_rest_str = self.timestamp_delta_to_str(time_rest_stamp)
 
         if not self._should_log_batch(batch_idx):
             return
 
-        # Print the logs.
+        # 로그를 출력한다.
         self.print(f"{self.title_prompt} [{self.stage.upper()}] Exp: {self.exp_name}...")
         self.print(
             f"{self.prog_prompt} Ep {epoch_idx}: {int(percent):02d}% <= [{batch_idx}/{self.total_train_batches}]"
@@ -386,11 +386,11 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
         self.print(f"{self.timer_prompt} Time: {time_cur_str} | Ep Rest: {time_rest_str}")
         for k, v in metrics.items():
             self.print(f"{self.metric_prompt} {k}: {v}")
-        self.print("")  # Add a blank line.
+        self.print("")  # 빈 줄을 추가한다.
 
     def on_train_epoch_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         super().on_train_epoch_start(trainer, pl_module)
-        # Initialize some meta data.
+        # 메타데이터를 초기화한다.
         self.time_start_batch = None
         if self.time_start_epoch is None:
             self.time_start_epoch = datetime.now().timestamp()
@@ -398,22 +398,22 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
     @rank_zero_only
     def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
         super().on_train_epoch_end(trainer, pl_module)
-        # Get some meta data.
+        # 메타데이터를 가져온다.
         epoch_idx = trainer.current_epoch
         percent = 100 * (epoch_idx + 1) / (self.trainer.max_epochs + 1)
         metrics = self.get_metrics(trainer, pl_module)
 
-        # Current time.
+        # 현재 시간
         time_cur = datetime.now().timestamp()
         time_str = datetime.fromtimestamp(time_cur).strftime("%m-%d %H: %M:%S")
-        # Rest time.
+        # 잔여 시간
         time_rest_stamp = (time_cur - self.time_start_epoch) * (100 - percent) / percent
         time_rest_str = self.timestamp_delta_to_str(time_rest_stamp)
 
         if not self._should_log_batch(epoch_idx):
             return
 
-        # Print the logs.
+        # 로그를 출력한다.
         self.print(f">> >> >> >>")
         self.print(f"{self.title_prompt} [{self.stage.upper()}] Exp: {self.exp_name}")
         self.print(f"{self.finish_prompt} Ep {epoch_idx} finished!")
@@ -421,7 +421,7 @@ class EmojiProgressReporter(ProgressBar, pl.Callback):
         for k, v in metrics.items():
             self.print(f"{self.metric_prompt} {k}: {v}")
         self.print(f"<< << << <<")
-        self.print("")  # Add a blank line.
+        self.print("")  # 빈 줄을 추가한다.
 
 
 group_name = "callbacks/prog_bar"

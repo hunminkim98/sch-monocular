@@ -2,9 +2,7 @@ import numpy as np
 
 
 def rotation_matrix_to_quaternion(R):
-    """
-    将 3x3 旋转矩阵 R 转换为四元数 [w, x, y, z] 的形式。
-    """
+    """3x3 rotation matrix R을 quaternion [w, x, y, z]로 변환합니다."""
     m00, m01, m02 = R[0, 0], R[0, 1], R[0, 2]
     m10, m11, m12 = R[1, 0], R[1, 1], R[1, 2]
     m20, m21, m22 = R[2, 0], R[2, 1], R[2, 2]
@@ -38,9 +36,7 @@ def rotation_matrix_to_quaternion(R):
 
 
 def quaternion_to_rotation_matrix(q):
-    """
-    将四元数 [w, x, y, z] 转换为 3x3 旋转矩阵。
-    """
+    """quaternion [w, x, y, z]를 3x3 rotation matrix로 변환합니다."""
     qw, qx, qy, qz = q
     R = np.array(
         [
@@ -54,30 +50,30 @@ def quaternion_to_rotation_matrix(q):
 
 def slerp(q0, q1, t):
     """
-    对两个四元数 q0 和 q1 进行球面线性插值（SLERP）。
+    두 quaternion q0와 q1을 구면 선형 보간(SLERP)합니다.
 
-    参数：
-      q0, q1: numpy 数组，形状为 (4,)，表示四元数 [w, x, y, z]
-      t: 插值系数，0 <= t <= 1
+    인자:
+        q0, q1: quaternion [w, x, y, z]를 나타내는 (4,) numpy array
+        t: 0 <= t <= 1인 보간 계수
 
-    返回：
-      插值后的四元数，形状为 (4,)
+    반환:
+        보간된 (4,) quaternion
     """
     dot = np.dot(q0, q1)
-    # 如果点积为负，取相反数以保证取短路径
+    # dot product가 음수이면 부호를 바꿔 짧은 경로를 선택합니다.
     if dot < 0.0:
         q1 = -q1
         dot = -dot
 
     DOT_THRESHOLD = 0.9995
     if dot > DOT_THRESHOLD:
-        # 当两个四元数非常接近时，直接使用线性插值再归一化
+        # 두 quaternion이 매우 가까우면 선형 보간 후 정규화합니다.
         result = q0 + t * (q1 - q0)
         result = result / np.linalg.norm(result)
         return result
 
-    theta_0 = np.arccos(dot)  # 两个四元数之间的角度
-    theta = theta_0 * t  # 插值后的角度
+    theta_0 = np.arccos(dot)  # 두 quaternion 사이의 각도
+    theta = theta_0 * t  # 보간된 각도
     sin_theta = np.sin(theta)
     sin_theta_0 = np.sin(theta_0)
 
@@ -89,49 +85,48 @@ def slerp(q0, q1, t):
 
 def lerp_missing_frames(T_w2c_list, sample_idxs):
     """
-    对给定的 T_w2c_list（已知帧的变换矩阵）进行平滑插值，生成所有帧的变换矩阵。
-    其中：
-      - 平移部分采用线性插值；
-      - 旋转部分采用自实现的SLERP球面线性插值，保证旋转过渡平滑。
+    알려진 frame의 transformation matrix인 T_w2c_list를 부드럽게 보간하여
+    모든 frame의 transformation matrix를 생성합니다. Translation은 선형 보간하고,
+    rotation은 SLERP 구면 선형 보간하여 부드러운 회전을 유지합니다.
 
-    参数：
-        T_w2c_list (numpy.ndarray): 形状为 (F, 4, 4) 的已知变换矩阵数组
-        sample_idxs (list 或 numpy.ndarray): 长度为 F 的已知帧在原始序列中的索引
-          （假设第一个索引为 0，最后一个为 F_all - 1）
+    인자:
+        T_w2c_list (numpy.ndarray): (F, 4, 4) 형태의 알려진 transformation matrix
+        sample_idxs (list 또는 numpy.ndarray): 원본 sequence에서 알려진 F개 frame의
+            index. 첫 index는 0, 마지막은 F_all - 1이라고 가정합니다.
 
-    返回：
-        numpy.ndarray: 形状为 (F_all, 4, 4) 的所有帧的变换矩阵，缺失帧通过平滑插值填充。
+    반환:
+        numpy.ndarray: 누락된 frame을 보간한 (F_all, 4, 4) transformation matrix
     """
     sample_idxs = np.array(sample_idxs)
-    # 根据最后一个已知帧索引确定总帧数（假设索引从 0 开始）
+    # 마지막으로 알려진 frame index에서 전체 frame 수를 구합니다(index는 0부터 시작).
     F_all = sample_idxs[-1] + 1
     new_T_list = []
 
-    # 分离出平移和旋转部分
+    # translation과 rotation을 분리합니다.
     translations = np.array([T[:3, 3] for T in T_w2c_list])
     rotations = np.array([T[:3, :3] for T in T_w2c_list])
-    # 将旋转矩阵转换为四元数
+    # rotation matrix를 quaternion으로 변환합니다.
     quaternions = np.array([rotation_matrix_to_quaternion(R) for R in rotations])
 
     for i in range(F_all):
-        # 如果该帧为已知帧，直接使用对应的变换矩阵
+        # 알려진 frame이면 해당 transformation matrix를 그대로 사용합니다.
         if i in sample_idxs:
             known_index = np.where(sample_idxs == i)[0][0]
             new_T_list.append(T_w2c_list[known_index])
         else:
-            # 定位左右两侧已知帧
+            # 양쪽에서 가장 가까운 알려진 frame을 찾습니다.
             next_known = np.searchsorted(sample_idxs, i)
             prev_known = next_known - 1
-            # 计算插值比例 t
+            # 보간 비율 t를 계산합니다.
             t_interp = (i - sample_idxs[prev_known]) / (sample_idxs[next_known] - sample_idxs[prev_known])
-            # 平移部分：线性插值
+            # translation은 선형 보간합니다.
             trans_interp = (1 - t_interp) * translations[prev_known] + t_interp * translations[next_known]
-            # 旋转部分：自实现 SLERP 插值
+            # rotation은 SLERP로 보간합니다.
             q0 = quaternions[prev_known]
             q1 = quaternions[next_known]
             q_interp = slerp(q0, q1, t_interp)
             rot_interp = quaternion_to_rotation_matrix(q_interp)
-            # 构造最终的 4x4 变换矩阵
+            # 최종 4x4 transformation matrix를 구성합니다.
             T_interp = np.eye(4)
             T_interp[:3, :3] = rot_interp
             T_interp[:3, 3] = trans_interp

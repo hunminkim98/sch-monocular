@@ -5,8 +5,8 @@ resource_dir = Path(__file__).parent / "resource"
 
 
 def mid2vname(mid):
-    """vname = {scene}/{seq}, Note that it ends with .mp4"""
-    # mid example: "inputs/bedlam/bedlam_download/20221011_1_250_batch01hand_closeup_suburb_a/mp4/seq_000001.mp4-rp_emma_posed_008"
+    """``vname = {scene}/{seq}`` 형식으로 바꿉니다. 확장자는 .mp4입니다."""
+    # mid 예: "inputs/bedlam/bedlam_download/20221011_1_250_batch01hand_closeup_suburb_a/mp4/seq_000001.mp4-rp_emma_posed_008"
     # -> vname: 20221011_1_250_batch01hand_closeup_suburb_a/seq_000001.mp4
     scene = mid.split("/")[-3]
     seq = mid.split("/")[-1].split("-")[0]
@@ -15,8 +15,8 @@ def mid2vname(mid):
 
 
 def mid2featname(mid):
-    """featname = {scene}/{seqsubj}, Note that it ends with .pt (extra)"""
-    # mid example: "inputs/bedlam/bedlam_download/20221011_1_250_batch01hand_closeup_suburb_a/mp4/seq_000001.mp4-rp_emma_posed_008"
+    """``featname = {scene}/{seqsubj}`` 형식으로 바꿉니다. 확장자는 .pt입니다."""
+    # mid 예: "inputs/bedlam/bedlam_download/20221011_1_250_batch01hand_closeup_suburb_a/mp4/seq_000001.mp4-rp_emma_posed_008"
     # -> featname: 20221011_1_250_batch01hand_closeup_suburb_a/seq_000001.mp4-rp_emma_posed_008.pt
     scene = mid.split("/")[-3]
     seqsubj = mid.split("/")[-1]
@@ -25,8 +25,8 @@ def mid2featname(mid):
 
 
 def featname2mid(featname):
-    """reverse func of mid2featname, Note that it removes .pt (extra)"""
-    # featname example: 20221011_1_250_batch01hand_closeup_suburb_a/seq_000001.mp4-rp_emma_posed_008.pt
+    """mid2featname의 역변환을 수행하며 .pt 확장자를 제거합니다."""
+    # featname 예: 20221011_1_250_batch01hand_closeup_suburb_a/seq_000001.mp4-rp_emma_posed_008.pt
     # -> mid: inputs/bedlam/bedlam_download/20221011_1_250_batch01hand_closeup_suburb_a/mp4/seq_000001.mp4-rp_emma_posed_008
     scene = featname.split("/")[0]
     seqsubj = featname.split("/")[1].strip(".pt")

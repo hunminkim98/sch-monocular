@@ -3,6 +3,10 @@
 inputs
 outputs
 
+# 로컬 모델 가중치와 연구·마이그레이션 자료는 공개 저장소에 포함하지 않습니다.
+/footmr_checkpoint.ckpt
+/footmr_clean_migration_bundle_*/
+
 # All file or folders start with tmp will be ignored
 tmp*  
 

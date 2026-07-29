@@ -1,12 +1,12 @@
 from omegaconf import DictConfig, ListConfig
 from hmr4d.configs import MainStore, builds
 
-# do not perform scheduling
+# scheduling을 수행하지 않는다.
 default = DictConfig({"scheduler": None})
 MainStore.store(name="default", node=default, group=f"scheduler_cfg")
 
 
-# epoch-based
+# epoch 단위
 def epoch_half_by(milestones=[100, 200, 300]):
     return DictConfig(
         {
@@ -27,7 +27,7 @@ MainStore.store(name="epoch_half_200_350", node=epoch_half_by([200, 350]), group
 MainStore.store(name="epoch_half_300", node=epoch_half_by([300]), group=f"scheduler_cfg")
 
 
-# epoch-based
+# epoch 단위
 def warmup_epoch_half_by(warmup=10, milestones=[100, 200, 300]):
     return DictConfig(
         {

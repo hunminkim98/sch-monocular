@@ -14,20 +14,21 @@ from hmr4d.utils.geo.quaternion import qbetween
 
 def homo_points(points):
     """
-    Args:
+    인자:
         points: (..., C)
-    Returns: (..., C+1), with 1 padded
+    반환: 마지막에 1을 채운 (..., C+1)
     """
     return F.pad(points, [0, 1], value=1.0)
 
 
 def apply_Ts_on_seq_points(points, Ts):
     """
-    perform translation matrix on related point
-    Args:
+    각 point에 대응하는 transformation matrix를 적용합니다.
+
+    인자:
         points: (..., N, 3)
         Ts: (..., N, 4, 4)
-    Returns: (..., N, 3)
+    반환: (..., N, 3)
     """
     points = torch.torch.einsum("...ki,...i->...k", Ts[..., :3, :3], points) + Ts[..., :3, 3]
     return points
@@ -35,17 +36,17 @@ def apply_Ts_on_seq_points(points, Ts):
 
 def apply_T_on_points(points, T):
     """
-    Args:
+    인자:
         points: (..., N, 3)
         T: (..., 4, 4)
-    Returns: (..., N, 3)
+    반환: (..., N, 3)
     """
     points_T = torch.einsum("...ki,...ji->...jk", T[..., :3, :3], points) + T[..., None, :3, 3]
     return points_T
 
 
 def T_transforms_points(T, points, pattern):
-    """manual mode of apply_T_on_points
+    """apply_T_on_points를 einsum pattern으로 직접 수행합니다.
     T: (..., 4, 4)
     points: (..., 3)
     pattern: "... c d, ... d -> ... c"
@@ -55,21 +56,21 @@ def T_transforms_points(T, points, pattern):
 
 def project_p2d(points, K=None, is_pinhole=True):
     """
-    Args:
+    인자:
         points: (..., (N), 3)
         K: (..., 3, 3)
-    Returns: shape is similar to points but without z
+    반환: z 차원을 제외한 points와 같은 shape
     """
     points = points.clone()
     if is_pinhole:
         z = points[..., [-1]]
         z.masked_fill_(z.abs() < 1e-6, 1e-6)
         points_proj = points / z
-    else:  # orthogonal
+    else:  # 직교 투영
         points_proj = F.pad(points[..., :2], (0, 1), value=1)
 
     if K is not None:
-        # Handle N
+        # point 개수 N 차원의 유무를 처리합니다.
         if len(points_proj.shape) == len(K.shape):
             p2d_h = torch.einsum("...ki,...ji->...jk", K, points_proj)
         else:
@@ -81,7 +82,7 @@ def project_p2d(points, K=None, is_pinhole=True):
 
 
 def gen_uv_from_HW(H, W, device="cpu"):
-    """Returns: (H, W, 2), as float. Note: uv not ij"""
+    """float (H, W, 2) UV grid를 반환합니다. IJ 순서가 아닙니다."""
     grid_v, grid_u = torch.meshgrid(torch.arange(H), torch.arange(W))
     return (
         torch.stack(
@@ -94,11 +95,11 @@ def gen_uv_from_HW(H, W, device="cpu"):
 
 
 def unproject_p2d(uv, z, K):
-    """we assume a pinhole camera for unprojection
+    """pinhole camera를 가정해 2D point를 unprojection합니다.
     uv: (B, N, 2)
     z: (B, N, 1)
     K: (B, 3, 3)
-    Returns: (B, N, 3)
+    반환: (B, N, 3)
     """
     xy_atz1 = (uv - K[:, None, :2, 2]) / K[:, None, [0, 1], [0, 1]]  # (B, N, 2)
     xyz = torch.cat([xy_atz1 * z, z], dim=-1)
@@ -107,14 +108,14 @@ def unproject_p2d(uv, z, K):
 
 def cvt_p2d_from_i_to_c(uv, K):
     """
-    Args:
+    인자:
         uv: (..., 2) or (..., N, 2)
         K: (..., 3, 3)
-    Returns: the same shape as input uv
+    반환: 입력 uv와 같은 shape
     """
     if len(uv.shape) == len(K.shape):
         xy = (uv - K[..., None, :2, 2]) / K[..., None, [0, 1], [0, 1]]
-    else:  # without N
+    else:  # N 차원이 없는 경우
         xy = (uv - K[..., :2, 2]) / K[..., [0, 1], [0, 1]]
     return xy
 
@@ -133,12 +134,13 @@ def cvt_to_bi01_p2d(p2d, bbx_lurb):
 
 
 def cvt_from_bi01_p2d(bi01_p2d, bbx_lurb):
-    """Use bbx_lurb to resize bi01_p2d to p2d (image-coordinates)
-    Args:
+    """bbx_lurb로 bi01_p2d를 image 좌표계 p2d로 변환합니다.
+
+    인자:
         p2d: (..., 2) or (..., N, 2)
         bbx_lurb: (..., 4)
-    Returns:
-        p2d: shape is the same as input
+    반환:
+        p2d: 입력과 같은 shape
     """
     bbx_wh = bbx_lurb[..., 2:] - bbx_lurb[..., :2]  # (..., 2)
     if len(bi01_p2d.shape) == len(bbx_wh.shape) + 1:
@@ -150,11 +152,11 @@ def cvt_from_bi01_p2d(bi01_p2d, bbx_lurb):
 
 def cvt_p2d_from_bi01_to_c(bi01, bbxs_lurb, Ks):
     """
-    Args:
-        bi01: (..., (N), 2), value in range (0,1), the point in the bbx image
+    인자:
+        bi01: (..., (N), 2), bounding box image 안의 (0, 1) 범위 point
         bbxs_lurb: (..., 4)
         Ks: (..., 3, 3)
-    Returns:
+    반환:
         c: (..., (N), 2)
     """
     i = cvt_from_bi01_p2d(bi01, bbxs_lurb)
@@ -164,10 +166,10 @@ def cvt_p2d_from_bi01_to_c(bi01, bbxs_lurb, Ks):
 
 def cvt_p2d_from_pm1_to_i(p2d_pm1, bbx_xys):
     """
-    Args:
-        p2d_pm1: (..., (N), 2), value in range (-1,1), the point in the bbx image
+    인자:
+        p2d_pm1: (..., (N), 2), bounding box image 안의 (-1, 1) 범위 point
         bbx_xys: (..., 3)
-    Returns:
+    반환:
         p2d: (..., (N), 2)
     """
     return bbx_xys[..., :2] + p2d_pm1 * bbx_xys[..., [2]] / 2
@@ -185,23 +187,24 @@ def l2uv_index(l, W):
 
 def transform_mat(R, t):
     """
-    Args:
-        R: Bx3x3 array of a batch of rotation matrices
-        t: Bx3x(1) array of a batch of translation vectors
-    Returns:
-        T: Bx4x4 Transformation matrix
+    인자:
+        R: rotation matrix batch의 Bx3x3 array
+        t: translation vector batch의 Bx3x(1) array
+    반환:
+        T: Bx4x4 transformation matrix
     """
-    # No padding left or right, only add an extra row
+    # 좌우는 padding하지 않고 마지막 row만 추가합니다.
     if len(R.shape) > len(t.shape):
         t = t[..., None]
     return torch.cat([F.pad(R, [0, 0, 0, 1]), F.pad(t, [0, 0, 0, 1], value=1)], dim=-1)
 
 
 def axis_angle_to_matrix_exp_map(aa):
-    """use pytorch3d so3_exp_map
-    Args:
+    """PyTorch3D의 so3_exp_map으로 axis-angle을 matrix로 변환합니다.
+
+    인자:
         aa: (*, 3)
-    Returns:
+    반환:
         R: (*, 3, 3)
     """
     print("Use pytorch3d.transforms.axis_angle_to_matrix instead!!!")
@@ -210,10 +213,11 @@ def axis_angle_to_matrix_exp_map(aa):
 
 
 def matrix_to_axis_angle_log_map(R):
-    """use pytorch3d so3_log_map
-    Args:
+    """PyTorch3D의 so3_log_map으로 matrix를 axis-angle로 변환합니다.
+
+    인자:
         aa: (*, 3, 3)
-    Returns:
+    반환:
         R: (*, 3)
     """
     print("WARINING! I met singularity problem with this function, use matrix_to_axis_angle instead!")
@@ -222,17 +226,18 @@ def matrix_to_axis_angle_log_map(R):
 
 
 def matrix_to_axis_angle(R):
-    """use pytorch3d so3_log_map
-    Args:
+    """quaternion을 거쳐 rotation matrix를 axis-angle로 변환합니다.
+
+    인자:
         aa: (*, 3, 3)
-    Returns:
+    반환:
         R: (*, 3)
     """
     return quaternion_to_axis_angle(matrix_to_quaternion(R))
 
 
 def ransac_PnP(K, pts_2d, pts_3d, err_thr=10):
-    """solve pnp"""
+    """RANSAC으로 PnP 문제를 풉니다."""
     dist_coeffs = np.zeros(shape=[8, 1], dtype="float64")
 
     pts_2d = np.ascontiguousarray(pts_2d.astype(np.float64))
@@ -313,7 +318,7 @@ def unproj_bbx_to_fst(bbx_lurb, K, near_z=0.5, far_z=12.5):
 
 def convert_bbx_xys_to_lurb(bbx_xys):
     """
-    Args: bbx_xys (..., 3) -> bbx_lurb (..., 4)
+    변환: bbx_xys (..., 3) -> bbx_lurb (..., 4)
     """
     size = bbx_xys[..., 2:]
     center = bbx_xys[..., :2]
@@ -323,34 +328,34 @@ def convert_bbx_xys_to_lurb(bbx_xys):
 
 def convert_lurb_to_bbx_xys(bbx_lurb):
     """
-    Args: bbx_lurb (..., 4) -> bbx_xys (..., 3) be aware that it is squared
+    변환: bbx_lurb (..., 4) -> 정사각형 bbx_xys (..., 3)
     """
     size = (bbx_lurb[..., 2:] - bbx_lurb[..., :2]).max(-1, keepdim=True)[0]
     center = (bbx_lurb[..., :2] + bbx_lurb[..., 2:]) / 2
     return torch.cat([center, size], dim=-1)
 
 
-# ================== AZ/AY Transformations ================== #
+# ================== AZ/AY 좌표계 변환 ================== #
 
 
 def compute_T_ayf2az(joints, inverse=False):
     """
-    Args:
-        joints: (B, J, 3), in the start-frame, az-coordinate
-    Returns:
-        if inverse == False:
+    인자:
+        joints: (B, J, 3), 시작 frame의 az 좌표계
+    반환:
+        inverse가 False이면:
            T_af2az: (B, 4, 4)
-        else :
+        그 외:
             T_az2af: (B, 4, 4)
     """
 
     t_ayf2az = joints[:, 0, :].detach().clone()
-    t_ayf2az[:, 2] = 0  # do not modify z
+    t_ayf2az[:, 2] = 0  # z축은 수정하지 않습니다.
 
-    RL_xy_h = joints[:, 1, [0, 1]] - joints[:, 2, [0, 1]]  # (B, 2), hip point to left side
-    RL_xy_s = joints[:, 16, [0, 1]] - joints[:, 17, [0, 1]]  # (B, 2), shoulder point to left side
+    RL_xy_h = joints[:, 1, [0, 1]] - joints[:, 2, [0, 1]]  # (B, 2), 왼쪽을 향하는 hip vector
+    RL_xy_s = joints[:, 16, [0, 1]] - joints[:, 17, [0, 1]]  # (B, 2), 왼쪽을 향하는 shoulder vector
     RL_xy = RL_xy_h + RL_xy_s
-    I_mask = RL_xy.pow(2).sum(-1) < 1e-4  # do not rotate, when can't decided the face direction
+    I_mask = RL_xy.pow(2).sum(-1) < 1e-4  # 정면 방향을 결정할 수 없으면 회전하지 않습니다.
     if I_mask.sum() > 0:
         Log.warn("{} samples can't decide the face direction".format(I_mask.sum()))
     x_dir = F.pad(F.normalize(RL_xy, 2, -1), (0, 1), value=0)  # (B, 3)
@@ -370,21 +375,21 @@ def compute_T_ayf2az(joints, inverse=False):
 
 def compute_T_ayfz2ay(joints, inverse=False):
     """
-    Args:
-        joints: (B, J, 3), in the start-frame, ay-coordinate
-    Returns:
-        if inverse == False:
+    인자:
+        joints: (B, J, 3), 시작 frame의 ay 좌표계
+    반환:
+        inverse가 False이면:
             T_ayfz2ay: (B, 4, 4)
-        else :
+        그 외:
             T_ay2ayfz: (B, 4, 4)
     """
     t_ayfz2ay = joints[:, 0, :].detach().clone()
-    t_ayfz2ay[:, 1] = 0  # do not modify y
+    t_ayfz2ay[:, 1] = 0  # y축은 수정하지 않습니다.
 
-    RL_xz_h = joints[:, 1, [0, 2]] - joints[:, 2, [0, 2]]  # (B, 2), hip point to left side
-    RL_xz_s = joints[:, 16, [0, 2]] - joints[:, 17, [0, 2]]  # (B, 2), shoulder point to left side
+    RL_xz_h = joints[:, 1, [0, 2]] - joints[:, 2, [0, 2]]  # (B, 2), 왼쪽을 향하는 hip vector
+    RL_xz_s = joints[:, 16, [0, 2]] - joints[:, 17, [0, 2]]  # (B, 2), 왼쪽을 향하는 shoulder vector
     RL_xz = RL_xz_h + RL_xz_s
-    I_mask = RL_xz.pow(2).sum(-1) < 1e-4  # do not rotate, when can't decided the face direction
+    I_mask = RL_xz.pow(2).sum(-1) < 1e-4  # 정면 방향을 결정할 수 없으면 회전하지 않습니다.
     if I_mask.sum() > 0:
         Log.warn("{} samples can't decide the face direction".format(I_mask.sum()))
 
@@ -406,13 +411,13 @@ def compute_T_ayfz2ay(joints, inverse=False):
 
 def compute_T_ay2ayrot(joints):
     """
-    Args:
-        joints: (B, J, 3), in the start-frame, ay-coordinate
-    Returns:
+    인자:
+        joints: (B, J, 3), 시작 frame의 ay 좌표계
+    반환:
         T_ay2ayrot: (B, 4, 4)
     """
     t_ayrot2ay = joints[:, 0, :].detach().clone()
-    t_ayrot2ay[:, 1] = 0  # do not modify y
+    t_ayrot2ay[:, 1] = 0  # y축은 수정하지 않습니다.
 
     B = joints.shape[0]
     euler_angle = torch.zeros((B, 3), device=joints.device)
@@ -427,20 +432,20 @@ def compute_T_ay2ayrot(joints):
 
 def compute_root_quaternion_ay(joints):
     """
-    Args:
-        joints: (B, J, 3), in the start-frame, ay-coordinate
-    Returns:
-        root_quat: (B, 4) from z-axis to fz
+    인자:
+        joints: (B, J, 3), 시작 frame의 ay 좌표계
+    반환:
+        root_quat: z축에서 fz 방향으로의 (B, 4) quaternion
     """
     joints_shape = joints.shape
     joints = joints.reshape((-1,) + joints_shape[-2:])
     t_ayfz2ay = joints[:, 0, :].detach().clone()
-    t_ayfz2ay[:, 1] = 0  # do not modify y
+    t_ayfz2ay[:, 1] = 0  # y축은 수정하지 않습니다.
 
-    RL_xz_h = joints[:, 1, [0, 2]] - joints[:, 2, [0, 2]]  # (B, 2), hip point to left side
-    RL_xz_s = joints[:, 16, [0, 2]] - joints[:, 17, [0, 2]]  # (B, 2), shoulder point to left side
+    RL_xz_h = joints[:, 1, [0, 2]] - joints[:, 2, [0, 2]]  # (B, 2), 왼쪽을 향하는 hip vector
+    RL_xz_s = joints[:, 16, [0, 2]] - joints[:, 17, [0, 2]]  # (B, 2), 왼쪽을 향하는 shoulder vector
     RL_xz = RL_xz_h + RL_xz_s
-    I_mask = RL_xz.pow(2).sum(-1) < 1e-4  # do not rotate, when can't decided the face direction
+    I_mask = RL_xz.pow(2).sum(-1) < 1e-4  # 정면 방향을 결정할 수 없으면 회전하지 않습니다.
     if I_mask.sum() > 0:
         Log.warn("{} samples can't decide the face direction".format(I_mask.sum()))
 
@@ -457,13 +462,14 @@ def compute_root_quaternion_ay(joints):
     return root_quat
 
 
-# ================== Transformations between two sets of features ================== #
+# ================== 두 feature 집합 사이의 transformation ================== #
 
 
 def similarity_transform_batch(S1, S2):
     """
-    Computes a similarity transform (sR, t) that solves the orthogonal Procrutes problem.
-    Args:
+    orthogonal Procrustes 문제를 푸는 similarity transformation (sR, t)를 계산합니다.
+
+    인자:
         S1, S2: (*, L, 3)
     """
     assert S1.shape == S2.shape
@@ -474,40 +480,39 @@ def similarity_transform_batch(S1, S2):
     S1 = S1.transpose(-2, -1)
     S2 = S2.transpose(-2, -1)
 
-    # --- The code is borrowed from WHAM ---
-    # 1. Remove mean.
-    mu1 = S1.mean(axis=-1, keepdims=True)  # axis is along N, S1(B, 3, N)
+    # --- 아래 코드는 WHAM에서 가져왔습니다. ---
+    # 1. 평균을 제거합니다.
+    mu1 = S1.mean(axis=-1, keepdims=True)  # N축을 따라 평균을 구합니다. S1(B, 3, N)
     mu2 = S2.mean(axis=-1, keepdims=True)
 
     X1 = S1 - mu1
     X2 = S2 - mu2
 
-    # 2. Compute variance of X1 used for scale.
+    # 2. scale 계산에 사용할 X1의 variance를 구합니다.
     var1 = torch.sum(X1**2, dim=1).sum(dim=1)
 
-    # 3. The outer product of X1 and X2.
+    # 3. X1과 X2의 outer product를 구합니다.
     K = X1.bmm(X2.permute(0, 2, 1))
 
-    # 4. Solution that Maximizes trace(R'K) is R=U*V', where U, V are
-    # singular vectors of K.
+    # 4. trace(R'K)를 최대화하는 해는 R=U*V'이며 U, V는 K의 singular vector입니다.
     U, s, V = torch.svd(K)
 
-    # Construct Z that fixes the orientation of R to get det(R)=1.
+    # det(R)=1이 되도록 R의 orientation을 보정하는 Z를 만듭니다.
     Z = torch.eye(U.shape[1], device=S1.device).unsqueeze(0)
     Z = Z.repeat(U.shape[0], 1, 1)
     Z[:, -1, -1] *= torch.sign(torch.det(U.bmm(V.permute(0, 2, 1))))
 
-    # Construct R.
+    # R을 구성합니다.
     R = V.bmm(Z.bmm(U.permute(0, 2, 1)))
 
-    # 5. Recover scale.
+    # 5. scale을 복원합니다.
     scale = torch.cat([torch.trace(x).unsqueeze(0) for x in R.bmm(K)]) / var1
 
-    # 6. Recover translation.
+    # 6. translation을 복원합니다.
     t = mu2 - (scale.unsqueeze(-1).unsqueeze(-1) * (R.bmm(mu1)))
 
     # -------
-    # reshape back
+    # 원래 batch shape로 복원합니다.
     # sR = scale[:, None, None] * R
     # sR = sR.reshape(*S_shape[:-2], 3, 3)
     scale = scale.reshape(*S_shape[:-2], 1, 1)
@@ -519,8 +524,9 @@ def similarity_transform_batch(S1, S2):
 
 def kabsch_algorithm_batch(X1, X2):
     """
-    Computes a rigid transform (R, t)
-    Args:
+    rigid transformation (R, t)를 계산합니다.
+
+    인자:
         X1, X2: (*, L, 3)
     """
     assert X1.shape == X2.shape
@@ -528,40 +534,40 @@ def kabsch_algorithm_batch(X1, X2):
     X1 = X1.reshape(-1, *X_shape[-2:])
     X2 = X2.reshape(-1, *X_shape[-2:])
 
-    # 1. 计算质心
+    # 1. 중심점을 계산합니다.
     centroid_X1 = torch.mean(X1, dim=-2, keepdim=True)
     centroid_X2 = torch.mean(X2, dim=-2, keepdim=True)
 
-    # 2. 去中心化
+    # 2. 중심을 제거합니다.
     X1_centered = X1 - centroid_X1
     X2_centered = X2 - centroid_X2
 
-    # 3. 计算协方差矩阵
+    # 3. covariance matrix를 계산합니다.
     H = torch.matmul(X1_centered.transpose(-2, -1), X2_centered)
 
-    # 4. 奇异值分解
+    # 4. singular value decomposition을 수행합니다.
     U, S, Vt = torch.linalg.svd(H)
 
-    # 5. 计算旋转矩阵
+    # 5. rotation matrix를 계산합니다.
     R = torch.matmul(Vt.transpose(-2, -1), U.transpose(-2, -1))
 
-    # 修正反射矩阵
+    # reflection matrix를 보정합니다.
     d = (torch.det(R) < 0).unsqueeze(-1).unsqueeze(-1)
     Vt = torch.where(d, -Vt, Vt)
     R = torch.matmul(Vt.transpose(-2, -1), U.transpose(-2, -1))
 
-    # 6. 计算平移向量
+    # 6. translation vector를 계산합니다.
     t = centroid_X2.transpose(-2, -1) - torch.matmul(R, centroid_X1.transpose(-2, -1))
 
     # -------
-    # reshape back
+    # 원래 batch shape로 복원합니다.
     R = R.reshape(*X_shape[:-2], 3, 3)
     t = t.reshape(*X_shape[:-2], 3, 1)
 
     return R, t
 
 
-# ===== WHAM cam_angvel ===== #
+# ===== WHAM camera 각속도 ===== #
 
 
 def compute_cam_angvel(R_w2c, padding_last=True):
@@ -584,17 +590,17 @@ def ransac_gravity_vec(xyz, num_iterations=100, threshold=0.05, verbose=False):
     norms = xyz.norm(dim=-1)  # (L,)
 
     for _ in range(num_iterations):
-        # 随机选择一个样本
+        # sample 하나를 무작위로 선택합니다.
         sample_index = np.random.randint(N)
         sample = xyz[sample_index]  # (3,)
 
-        # 计算所有点与样本点的角度差
+        # 모든 point와 sample point 사이의 각도 차이를 계산합니다.
         dot_product = (xyz * sample).sum(dim=-1)  # (L,)
         angles = dot_product / norms * norms[sample_index]  # (L,)
-        angles = torch.clamp(angles, -1, 1)  # 防止数值误差导致的异常
+        angles = torch.clamp(angles, -1, 1)  # 수치 오차로 인한 이상값을 방지합니다.
         angles = torch.acos(angles)
 
-        # 确定内点
+        # inlier를 결정합니다.
         inliers = xyz[angles < threshold]
 
         if len(inliers) > len(max_inliers):
@@ -610,7 +616,7 @@ def ransac_gravity_vec(xyz, num_iterations=100, threshold=0.05, verbose=False):
 
 
 def sequence_best_cammat(w_j3d, c_j3d, cam_rot):
-    # get best camera estimation along the sequence, requires static camera
+    # static camera를 가정해 sequence 전체에서 가장 좋은 camera 추정값을 구합니다.
     # w_j3d: (L, J, 3)
     # c_j3d: (L, J, 3)
     # cam_rot: (L, 3, 3)
@@ -626,7 +632,7 @@ def sequence_best_cammat(w_j3d, c_j3d, cam_rot):
     w_j3d_expand = w_j3d[None].expand(L, -1, -1, -1)  # (L, L, J, 3)
     w_j3d_expand = w_j3d_expand.reshape(L, -1, 3)  # (L, L*J, 3)
 
-    # get reproject error
+    # reprojection error를 계산합니다.
     w_j3d_expand_in_c = matrix.get_relative_position_to(w_j3d_expand, cam_mat)  # (L, L*J, 3)
     w_j2d_expand_in_c = project_p2d(w_j3d_expand_in_c)  # (L, L*J, 2)
     w_j2d_expand_in_c = w_j2d_expand_in_c.reshape(L, L, J, 2)  # (L, L, J, 2)
@@ -655,7 +661,7 @@ def get_sequence_cammat(w_j3d, c_j3d, cam_rot):
 
 def ransac_vec(vel, min_multiply=20, verbose=False):
     # xyz: (L, 3)
-    # remove outlier velocity
+    # velocity outlier를 제거합니다.
     N = vel.shape[0]
     vel_1 = vel[None].expand(N, -1, -1)  # (L, L, 3)
     vel_2 = vel[:, None].expand(-1, N, -1)  # (L, L, 3)

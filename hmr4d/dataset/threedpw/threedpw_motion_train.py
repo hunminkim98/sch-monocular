@@ -12,10 +12,10 @@ from hmr4d.configs import MainStore, builds
 
 class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
     def __init__(self):
-        # Path
+        # 경로
         self.hmr4d_support_dir = Path("inputs/3DPW/hmr4d_support")
         self.dataset_name = "3DPW"
-        # Setting
+        # 설정
         self.min_motion_frames = 60
         self.max_motion_frames = 120
         super().__init__()
@@ -23,7 +23,7 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
     def _load_dataset(self):
         self.train_labels = torch.load(self.hmr4d_support_dir / "train_3dpw_gt_labels.pt")
         self.refit_smplx = torch.load(self.hmr4d_support_dir / "train_refit_smplx.pt")
-        if True:  # Remove clips that have obvious error
+        if True:  # 명백한 오류가 있는 clip을 제거합니다.
             update_list = {
                 "courtyard_basketball_00_1": [(0, 300), (340, 468)],
                 "courtyard_laceShoe_00_0": [(0, 620), (780, 931)],
@@ -37,8 +37,8 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
         Log.info(f"[{self.dataset_name}] Train")
 
     def _get_idx2meta(self):
-        # We expect to see the entire sequence during one epoch,
-        # so each sequence will be sampled max(SeqLength // MotionFrames, 1) times
+        # 한 epoch에서 전체 sequence를 보도록 각 sequence를
+        # max(SeqLength // MotionFrames, 1)번 샘플링합니다.
         seq_lengths = []
         self.idx2meta = []
         for vid in self.refit_smplx:
@@ -57,12 +57,12 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
         data = {}
         vid, range1, range2 = self.idx2meta[idx]
 
-        # Random select a subset
+        # subset을 무작위로 선택합니다.
         mlength = range2 - range1
         min_motion_len = self.min_motion_frames
         max_motion_len = self.max_motion_frames
 
-        if mlength < min_motion_len:  # this may happen, the minimal mlength is around 30
+        if mlength < min_motion_len:  # 최소 mlength가 약 30이어서 발생할 수 있습니다.
             start = range1
             length = mlength
         else:
@@ -76,12 +76,12 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
         data["meta"] = {"data_name": self.dataset_name, "idx": idx, "vid": vid,
                         "start_end": (start, end), "video_path": video_path}
 
-        # Select motion subset
+        # motion subset을 선택합니다.
         data["smplx_params_incam"] = {k: v[start:end] for k, v in self.refit_smplx[vid]["smplx_params_incam"].items()}
         data["K_fullimg"] = self.train_labels[vid]["K_fullimg"]
         data["T_w2c"] = self.train_labels[vid]["T_w2c"][start:end]
 
-        # Img (as feature):
+        # image feature를 불러옵니다.
         f_img_dict = torch.load(self.f_img_folder / f"{vid}.pt")
         data["bbx_xys"] = f_img_dict["bbx_xys"][start:end]  # (F, 3)
         data["f_imgseq"] = f_img_dict["features"][start:end].float()  # (F, 3)
@@ -122,7 +122,7 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
             },
         }
 
-        # Batchable
+        # batch로 묶을 수 있는 길이로 맞춥니다.
         return_data["smpl_params_c"] = repeat_to_max_len_dict(return_data["smpl_params_c"], max_len)
         return_data["smpl_params_w"] = repeat_to_max_len_dict(return_data["smpl_params_w"], max_len)
         return_data["R_c2gv"] = repeat_to_max_len(return_data["R_c2gv"], max_len)
@@ -135,5 +135,5 @@ class ThreedpwSmplDataset(ImgfeatMotionDatasetBase):
         return return_data
 
 
-# 3DPW
+# 3DPW 설정을 등록합니다.
 MainStore.store(name="v1", node=builds(ThreedpwSmplDataset), group="train_datasets/imgfeat_3dpw")

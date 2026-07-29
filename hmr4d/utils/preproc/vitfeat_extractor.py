@@ -20,14 +20,14 @@ def get_batch(input_path, bbx_xys, img_ds=0.5, img_dst_size=256, path_type="vide
         imgs = imgs[None]
     elif path_type == "np":
         assert isinstance(input_path, np.ndarray)
-        assert img_ds == 1.0  # this is safe
+        assert img_ds == 1.0  # numpy 입력은 원본 scale만 허용합니다.
         imgs = input_path
     imgsize = np.array(imgs[0].shape[:2]).astype(np.float32) / img_ds
 
     gt_center = bbx_xys[:, :2]
     gt_bbx_size = bbx_xys[:, 2]
 
-    # Blur image to avoid aliasing artifacts
+    # aliasing artifact를 줄이기 위해 image를 blur 처리합니다.
     if True:
         gt_bbx_size_ds = gt_bbx_size * img_ds
         ds_factors = ((gt_bbx_size_ds * 1.0) / img_dst_size / 2.0).numpy()
@@ -39,7 +39,7 @@ def get_batch(input_path, bbx_xys, img_ds=0.5, img_dst_size=256, path_type="vide
             ]
         )
 
-    # Output
+    # 출력 구성
     imgs_list = []
     bbx_xys_ds_list = []
     for i in range(len(imgs)):
@@ -69,9 +69,9 @@ class Extractor:
 
     def extract_video_features(self, video_path, bbx_xys, img_ds=0.5):
         """
-        img_ds makes the image smaller, which is useful for faster processing
+        img_ds로 image를 줄이면 처리 속도를 높일 수 있습니다.
         """
-        # Get the batch
+        # batch 입력을 준비합니다.
         if isinstance(video_path, str):
             imgs, bbx_xys, imgsize = get_batch(video_path, bbx_xys, img_ds=img_ds,
                                                return_imgsize=True)
@@ -82,10 +82,10 @@ class Extractor:
             assert isinstance(video_path, torch.Tensor)
             imgs = video_path
 
-        # Inference
+        # 추론
         F, _, H, W = imgs.shape  # (F, 3, H, W)
         imgs = imgs.cuda()
-        batch_size = 16  # 5GB GPU memory, occupies all CUDA cores of 3090
+        batch_size = 16  # 약 5GB GPU memory를 사용하며 RTX 3090의 CUDA core를 모두 활용합니다.
         features = []
         for j in tqdm(range(0, F, batch_size), desc="HMR2 Feature", leave=self.tqdm_leave):
             imgs_batch = imgs[j : j + batch_size]

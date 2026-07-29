@@ -9,9 +9,9 @@ from .transformation_np import *
 class CameraParams:
     width: int
     height: int
-    focal_length: float = None  # Use sqrt(width^2 + height^2) if not provided FOV~=53°
-    cx: float = None  # Use half of width if not provided
-    cy: float = None  # Use half of height if not provided
+    focal_length: float = None  # 미지정 시 sqrt(width^2 + height^2)를 사용하며 FoV는 약 53도입니다.
+    cx: float = None  # 미지정 시 width의 절반을 사용합니다.
+    cy: float = None  # 미지정 시 height의 절반을 사용합니다.
 
 
 class Cv2RansacEssentialSolver:
@@ -32,13 +32,13 @@ class Cv2RansacEssentialSolver:
 
     def get_K(self):
         """
-        Returns:
+        반환:
             K: np.ndarray, shape (3, 3), dtype=np.float32
         """
         return self.camera_matrix
 
     def solve(self, pts0, pts1):
-        # Find essential matrix with stricter RANSAC
+        # 더 엄격한 RANSAC으로 essential matrix를 구합니다.
         E, mask = cv2.findEssentialMat(
             pts0,
             pts1,
@@ -48,7 +48,7 @@ class Cv2RansacEssentialSolver:
             threshold=1.0,
         )
 
-        # Recover pose
+        # pose를 복원합니다.
         _, R, t, mask = cv2.recoverPose(E, pts0, pts1, self.camera_matrix, mask=mask)
 
         return R, t
@@ -69,7 +69,7 @@ class PycolmapRansacTwoViewGeometrySolver:
             cy = height / 2
         self.camera_matrix = np.array([[focal_length, 0, cx], [0, focal_length, cy], [0, 0, 1]])
 
-        # Set up pycolmap
+        # PyCOLMAP camera를 구성합니다.
         self.camera = pycolmap.Camera(
             camera_id=0,
             model="SIMPLE_PINHOLE",
@@ -78,7 +78,7 @@ class PycolmapRansacTwoViewGeometrySolver:
             params=[focal_length, cx, cy],
         )
 
-        # Configure options for consecutive frames
+        # 연속 frame에 사용할 옵션을 설정합니다.
         self.options = pycolmap.TwoViewGeometryOptions(
             min_num_inliers=10,
             min_E_F_inlier_ratio=0.8,
@@ -101,7 +101,7 @@ class PycolmapRansacTwoViewGeometrySolver:
             options=self.options,
         )
 
-        # cam2_from_cam1 means T_0_to_1 in our language
+        # cam2_from_cam1은 이 코드의 표기법으로 T_0_to_1을 뜻합니다.
         Rt = answer.cam2_from_cam1.matrix().astype(np.float32)  # shape (3, 4)
         T = np.eye(4)
         T[:3] = Rt
@@ -109,8 +109,8 @@ class PycolmapRansacTwoViewGeometrySolver:
 
 
 two_pair_solver_map = {
-    # "cv2": Cv2RansacEssentialSolver,  # This is not stable
-    "pycolmap": PycolmapRansacTwoViewGeometrySolver,  # Essential and Homography at the same time
+    # "cv2": Cv2RansacEssentialSolver,  # 안정성이 부족합니다.
+    "pycolmap": PycolmapRansacTwoViewGeometrySolver,  # Essential과 Homography를 함께 계산합니다.
 }
 
 
@@ -120,72 +120,71 @@ class TwoPairSolver:
 
     def get_K(self):
         """
-        Returns:
+        반환:
             K: np.ndarray, shape (3, 3), dtype=np.float32
         """
         return self.solver.get_K()
 
     def solve(self, pts0, pts1):
         """
-        Args:
+        인자:
             pts0: np.ndarray, shape (N, 2), dtype=np.float32
             pts1: np.ndarray, shape (N, 2), dtype=np.float32
-        Returns:
+        반환:
             T: np.ndarray, shape (4, 4), dtype=np.float32
         """
         return self.solver.solve(pts0, pts1)
 
 
 ########################################################
-# Interpolate missing frames
+# 누락된 frame 보간
 ########################################################
 
 
 def interpolate_missing_frames(T_w2c_list, sample_idxs):
     """
-    对给定的 T_w2c_list（已知帧的变换矩阵）进行平滑插值，生成所有帧的变换矩阵。
-    其中：
-      - 平移部分采用线性插值；
-      - 旋转部分采用自实现的SLERP球面线性插值，保证旋转过渡平滑。
+    알려진 frame의 transformation matrix인 T_w2c_list를 부드럽게 보간하여
+    모든 frame의 transformation matrix를 생성합니다. Translation은 선형 보간하고,
+    rotation은 SLERP 구면 선형 보간하여 부드러운 회전을 유지합니다.
 
-    参数：
-        T_w2c_list (numpy.ndarray): 形状为 (F, 4, 4) 的已知变换矩阵数组
-        sample_idxs (list 或 numpy.ndarray): 长度为 F 的已知帧在原始序列中的索引
-          （假设第一个索引为 0，最后一个为 F_all - 1）
+    인자:
+        T_w2c_list (numpy.ndarray): (F, 4, 4) 형태의 알려진 transformation matrix
+        sample_idxs (list 또는 numpy.ndarray): 원본 sequence에서 알려진 F개 frame의
+            index. 첫 index는 0, 마지막은 F_all - 1이라고 가정합니다.
 
-    返回：
-        numpy.ndarray: 形状为 (F_all, 4, 4) 的所有帧的变换矩阵，缺失帧通过平滑插值填充。
+    반환:
+        numpy.ndarray: 누락된 frame을 보간한 (F_all, 4, 4) transformation matrix
     """
     sample_idxs = np.array(sample_idxs)
-    # 根据最后一个已知帧索引确定总帧数（假设索引从 0 开始）
+    # 마지막으로 알려진 frame index에서 전체 frame 수를 구합니다(index는 0부터 시작).
     F_all = sample_idxs[-1] + 1
     new_T_list = []
 
-    # 分离出平移和旋转部分
+    # translation과 rotation을 분리합니다.
     translations = np.array([T[:3, 3] for T in T_w2c_list])
     rotations = np.array([T[:3, :3] for T in T_w2c_list])
-    # 将旋转矩阵转换为四元数
+    # rotation matrix를 quaternion으로 변환합니다.
     quaternions = np.array([rotation_matrix_to_quaternion(R) for R in rotations])
 
     for i in range(F_all):
-        # 如果该帧为已知帧，直接使用对应的变换矩阵
+        # 알려진 frame이면 해당 transformation matrix를 그대로 사용합니다.
         if i in sample_idxs:
             known_index = np.where(sample_idxs == i)[0][0]
             new_T_list.append(T_w2c_list[known_index])
         else:
-            # 定位左右两侧已知帧
+            # 양쪽에서 가장 가까운 알려진 frame을 찾습니다.
             next_known = np.searchsorted(sample_idxs, i)
             prev_known = next_known - 1
-            # 计算插值比例 t
+            # 보간 비율 t를 계산합니다.
             t_interp = (i - sample_idxs[prev_known]) / (sample_idxs[next_known] - sample_idxs[prev_known])
-            # 平移部分：线性插值
+            # translation은 선형 보간합니다.
             trans_interp = (1 - t_interp) * translations[prev_known] + t_interp * translations[next_known]
-            # 旋转部分：自实现 SLERP 插值
+            # rotation은 SLERP로 보간합니다.
             q0 = quaternions[prev_known]
             q1 = quaternions[next_known]
             q_interp = slerp(q0, q1, t_interp)
             rot_interp = quaternion_to_rotation_matrix(q_interp)
-            # 构造最终的 4x4 变换矩阵
+            # 최종 4x4 transformation matrix를 구성합니다.
             T_interp = np.eye(4)
             T_interp[:3, :3] = rot_interp
             T_interp[:3, 3] = trans_interp

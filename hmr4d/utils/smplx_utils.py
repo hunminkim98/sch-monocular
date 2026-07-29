@@ -21,7 +21,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
             model_path="inputs/models/smplx/SMPLX_NEUTRAL.npz", use_pca=False, flat_hand_mean=True, **kwargs
         )
     elif type == "supermotion":
-        # SuperMotion is trained on BEDLAM dataset, the smplx config is the same except only 10 betas are used
+        # SuperMotion은 BEDLAM으로 학습했으며, beta 10개만 쓴다는 점을 제외하면 SMPL-X 설정이 같다.
         bm_kwargs = {
             "model_type": "smplx",
             "gender": "neutral",
@@ -31,7 +31,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         bm_kwargs.update(kwargs)
         model = BodyModelSMPLX(model_path=PROJ_ROOT / "inputs/checkpoints/body_models", **bm_kwargs)
     elif type == "fuse_smplx":
-        # SuperMotion is trained on BEDLAM dataset, the smplx config is the same except only 10 betas are used
+        # SuperMotion은 BEDLAM으로 학습했으며, beta 10개만 쓴다는 점을 제외하면 SMPL-X 설정이 같다.
         bm_kwargs = {
             "model_type": "smplx",
             "gender": "neutral",
@@ -42,7 +42,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         bm_kwargs.update(kwargs)
         model = BodyModelSMPLX(model_path=PROJ_ROOT / "inputs/checkpoints/body_models", **bm_kwargs)
     elif type == "supermotion_EVAL3DPW":
-        # SuperMotion is trained on BEDLAM dataset, the smplx config is the same except only 10 betas are used
+        # SuperMotion은 BEDLAM으로 학습했으며, beta 10개만 쓴다는 점을 제외하면 SMPL-X 설정이 같다.
         bm_kwargs = {
             "model_type": "smplx",
             "gender": "neutral",
@@ -52,13 +52,13 @@ def make_smplx(type="neu_fullpose", **kwargs):
         bm_kwargs.update(kwargs)
         model = BodyModelSMPLX(model_path="inputs/checkpoints/body_models", **bm_kwargs)
     elif type == "supermotion_coco17":
-        # Fast but only predicts 17 joints
+        # 빠르지만 joint 17개만 예측한다.
         model = SmplxLiteCoco17()
     elif type == "supermotion_v437coco17":
-        # Predicts 437 verts and 17 joints
+        # vertex 437개와 joint 17개를 예측한다.
         model = SmplxLiteV437Coco17()
     elif type == "supermotion_v437coco23":
-        # Predicts 437 verts and 17 joints + 6 foot joints
+        # vertex 437개, joint 17개, 발 joint 6개를 예측한다.
         model = SmplxLiteV437Coco23()
     elif type == "supermotion_smpl24":
         model = SmplxLiteSmplN24()
@@ -71,7 +71,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
             "flat_hand_mean": False,
             # create_expression=True, create_jaw_pose=Ture
         }
-        # A /smplx folder should exist under the model_path
+        # model_path 아래에 /smplx 폴더가 있어야 한다.
         bm_kwargs.update(kwargs)
         model = BodyModelSMPLX(model_path="inputs/checkpoints/body_models", **bm_kwargs)
     elif type == "rich-smplx-flat-hand":
@@ -84,7 +84,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
             "flat_hand_mean": True,
             # create_expression=True, create_jaw_pose=Ture
         }
-        # A /smplx folder should exist under the model_path
+        # model_path 아래에 /smplx 폴더가 있어야 한다.
         bm_kwargs.update(kwargs)
         model = BodyModelSMPLX(model_path="inputs/checkpoints/body_models", **bm_kwargs)
     elif type == "rich-smplh":
@@ -97,7 +97,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         model = BodyModelSMPLH(model_path="inputs/checkpoints/body_models", **bm_kwargs)
 
     elif type in ["smplx-circle", "smplx-groundlink"]:
-        # don't use hand
+        # 손 pose는 사용하지 않는다.
         bm_kwargs = {
             "model_path": "inputs/checkpoints/body_models",
             "model_type": "smplx",
@@ -132,7 +132,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         model = smplx.create(**bm_kwargs)
 
     elif type == "smplx-samp":
-        # don't use hand
+        # 손 pose는 사용하지 않는다.
         bm_kwargs = {
             "model_path": "inputs/checkpoints/body_models",
             "model_type": "smplx",
@@ -143,7 +143,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         model = BodyModelSMPLX(**bm_kwargs)
 
     elif type == "smplx-bedlam":
-        # don't use hand
+        # 손 pose는 사용하지 않는다.
         bm_kwargs = {
             "model_path": "inputs/checkpoints/body_models",
             "model_type": "smplx",
@@ -154,7 +154,7 @@ def make_smplx(type="neu_fullpose", **kwargs):
         model = BodyModelSMPLX(**bm_kwargs)
 
     elif type in ["smplx-layer", "smplx-fit3d"]:
-        # Use layer
+        # layer 구현을 사용한다.
         if type == "smplx-fit3d":
             assert (
                 kwargs.get("gender") == "neutral"
@@ -248,18 +248,18 @@ def compose_fullpose(fullpose_dict, model_type="smplx"):
 
 
 def compute_R_from_kinetree(rot_mats, parents):
-    """operation of lbs/batch_rigid_transform, focus on 3x3 R only
-    Parameters
+    """lbs/batch_rigid_transform 연산 중 3x3 R만 계산한다.
+    매개변수
     ----------
     rot_mats: torch.tensor BxNx3x3
-        Tensor of rotation matrices
+        회전 행렬 tensor
     parents : torch.tensor BxN
-        The kinematic tree of each object
+        각 객체의 kinematic tree
 
-    Returns
+    반환값
     -------
     R : torch.tensor BxNx3x3
-        Tensor of rotation matrices
+        회전 행렬 tensor
     """
     rot_mat_chain = [rot_mats[:, 0]]
     for i in range(1, parents.shape[0]):
@@ -271,22 +271,22 @@ def compute_R_from_kinetree(rot_mats, parents):
 
 
 def compute_relR_from_kinetree(R, parents):
-    """Inverse operation of lbs/batch_rigid_transform, focus on 3x3 R only
-    Parameters
+    """lbs/batch_rigid_transform의 역연산 중 3x3 R만 계산한다.
+    매개변수
     ----------
     R : torch.tensor BxNx4x4 or BxNx3x3
-        Tensor of rotation matrices
+        회전 행렬 tensor
     parents : torch.tensor BxN
-        The kinematic tree of each object
+        각 객체의 kinematic tree
 
-    Returns
+    반환값
     -------
     rot_mats: torch.tensor BxNx3x3
-        Tensor of rotation matrices
+        회전 행렬 tensor
     """
     R = R[:, :, :3, :3]
 
-    Rp = R[:, parents]  # Rp[:, 0] is invalid
+    Rp = R[:, parents]  # Rp[:, 0]은 유효하지 않다.
     rot_mats = Rp.transpose(2, 3) @ R
     rot_mats[:, 0] = R[:, 0]
 
@@ -295,11 +295,11 @@ def compute_relR_from_kinetree(R, parents):
 
 def quat_mul(x, y):
     """
-    Performs quaternion multiplication on arrays of quaternions
+    quaternion 배열끼리 곱한다.
 
-    :param x: tensor of quaternions of shape (..., Nb of joints, 4)
-    :param y: tensor of quaternions of shape (..., Nb of joints, 4)
-    :return: The resulting quaternions
+    :param x: shape이 (..., joint 수, 4)인 quaternion tensor
+    :param y: shape이 (..., joint 수, 4)인 quaternion tensor
+    :return: 곱셈 결과 quaternion
     """
     x0, x1, x2, x3 = x[..., 0:1], x[..., 1:2], x[..., 2:3], x[..., 3:4]
     y0, y1, y2, y3 = y[..., 0:1], y[..., 1:2], y[..., 2:3], y[..., 3:4]
@@ -328,10 +328,10 @@ def quat_mul(x, y):
 
 def quat_inv(q):
     """
-    Inverts a tensor of quaternions
+    quaternion tensor의 역을 구한다.
 
     :param q: quaternion tensor
-    :return: tensor of inverted quaternions
+    :return: 역 quaternion tensor
     """
     # res = np.asarray([1, -1, -1, -1], dtype=np.float32) * q
     res = torch.tensor([1, -1, -1, -1], device=q.device).float() * q
@@ -340,11 +340,11 @@ def quat_inv(q):
 
 def quat_mul_vec(q, x):
     """
-    Performs multiplication of an array of 3D vectors by an array of quaternions (rotation).
+    3D vector 배열에 quaternion 배열의 회전을 적용한다.
 
-    :param q: tensor of quaternions of shape (..., Nb of joints, 4)
-    :param x: tensor of vectors of shape (..., Nb of joints, 3)
-    :return: the resulting array of rotated vectors
+    :param q: shape이 (..., joint 수, 4)인 quaternion tensor
+    :param x: shape이 (..., joint 수, 3)인 vector tensor
+    :return: 회전된 vector 배열
     """
     # t = 2.0 * np.cross(q[..., 1:], x)
     t = 2.0 * torch.cross(q[..., 1:], x)
@@ -378,14 +378,14 @@ def inverse_kinematics_motion(
 
 
 def transform_mat(R, t):
-    """Creates a batch of transformation matrices
+    """batch 단위 transformation matrix를 만든다.
     Args:
-        - R: Bx3x3 array of a batch of rotation matrices
-        - t: Bx3x1 array of a batch of translation vectors
+        - R: Bx3x3 회전 행렬 batch
+        - t: Bx3x1 translation vector batch
     Returns:
-        - T: Bx4x4 Transformation matrix
+        - T: Bx4x4 transformation matrix
     """
-    # No padding left or right, only add an extra row
+    # 좌우 padding 없이 row 하나만 추가한다.
     return torch.cat([F.pad(R, [0, 0, 0, 1]), F.pad(t, [0, 0, 0, 1], value=1)], dim=2)
 
 
@@ -409,7 +409,7 @@ def normalize_joints(joints):
 
 @torch.no_grad()
 def compute_Rt_af2az(joints, inverse=False):
-    """Assume z coord is upward
+    """z 좌표가 위쪽이라고 가정한다.
     Args:
         joints: (B, J, 3), in the start-frame
     Returns:
@@ -417,10 +417,10 @@ def compute_Rt_af2az(joints, inverse=False):
         t_af2az: (B, 3)
     """
     t_af2az = joints[:, 0, :].detach().clone()
-    t_af2az[:, 2] = 0  # do not modify z
+    t_af2az[:, 2] = 0  # z는 변경하지 않는다.
 
     LR_xy = joints[:, 2, [0, 1]] - joints[:, 1, [0, 1]]  # (B, 2)
-    I_mask = LR_xy.pow(2).sum(-1) < 1e-4  # do not rotate, when can't decided the face direction
+    I_mask = LR_xy.pow(2).sum(-1) < 1e-4  # 바라보는 방향을 정할 수 없으면 회전하지 않는다.
     x_dir = F.pad(F.normalize(LR_xy, 2, -1), (0, 1), "constant", 0)  # (B, 3)
     z_dir = torch.zeros_like(x_dir)
     z_dir[..., 2] = 1

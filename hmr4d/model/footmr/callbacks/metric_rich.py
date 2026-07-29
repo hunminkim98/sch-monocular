@@ -18,14 +18,14 @@ class MetricMocap(pl.Callback):
     def __init__(self):
         super().__init__()
         self.dataset_name = "RICH"
-        # vid->result
+        # video ID별 결과
         self.metric_aggregator = {
             "pa_mpjpe": {},
-            "n_mpjpef": {},  # scale-normalized MPJPE for foot keypoints
-            "ajae": {},  # Ankle Joint Angle Error
+            "n_mpjpef": {},  # foot keypoint의 scale-normalized MPJPE
+            "ajae": {},  # 발목 joint angle 오차
         }
 
-        # SMPLX
+        # SMPL-X 모델
         self.smplx_model = {
             "male": make_smplx("rich-smplx", gender="male").cuda(),
             "female": make_smplx("rich-smplx", gender="female").cuda(),
@@ -35,15 +35,15 @@ class MetricMocap(pl.Callback):
         self.J_regressor = torch.load("hmr4d/utils/body_model/smpl_neutral_J_regressor.pt").cuda()
         self.smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
 
-        # The metrics are calculated similarly for val/test/predict
+        # validation, test, predict에서 같은 방식으로 metric을 계산합니다.
         self.on_test_batch_end = self.on_validation_batch_end = self.on_predict_batch_end
 
-        # Only validation record the metrics with logger
+        # validation 단계에서만 logger에 metric을 기록합니다.
         self.on_test_epoch_end = self.on_validation_epoch_end = self.on_predict_epoch_end
 
-    # ================== Batch-based Computation  ================== #
+    # ================== Batch 단위 계산 ================== #
     def on_predict_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
-        """The behaviour is the same for val/test/predict"""
+        """validation, test, predict에서 동일하게 동작합니다."""
         assert batch["B"] == 1
         dataset_id = batch["meta"][0]["dataset_id"]
         if dataset_id != self.dataset_name:
@@ -53,7 +53,7 @@ class MetricMocap(pl.Callback):
         gender = batch["gender"][0]
         T_w2c = batch["T_w2c"][0]
 
-        # Groundtruth (cam)
+        # camera 좌표계의 GT
         target_w_params = {k: v[0] for k, v in batch["gt_smpl_params"].items()}
         target_w_output = self.smplx_model[gender](**target_w_params)
         target_w_verts = torch.stack(
@@ -61,25 +61,25 @@ class MetricMocap(pl.Callback):
         )
         target_c_verts = apply_T_on_points(target_w_verts, T_w2c)
         target_c_j3d = torch.matmul(self.J_regressor, target_c_verts)
-        # compute gt incam global_orient:
+        # camera 좌표계의 GT global_orient를 계산합니다.
         gt_global_orient = target_w_params["global_orient"]
         gt_global_rotmat = axis_angle_to_matrix(gt_global_orient)
         cam_rot = T_w2c[..., :3, :3]
         gt_incam_rotmat = torch.matmul(cam_rot[None], gt_global_rotmat)
         gt_incam_orient = matrix_to_axis_angle(gt_incam_rotmat)
         gt_incam_full_body_pose = torch.cat((gt_incam_orient, target_w_params["body_pose"]), dim=1)
-        # + Prediction -> Metric
-        # 1. cam
+        # 예측 결과로 metric을 계산합니다.
+        # 1. camera 좌표계
         pred_smpl_params_incam = outputs["pred_smpl_params_incam"]
         smpl_out = self.smplx_model["neutral"](**pred_smpl_params_incam)
         pred_c_verts = torch.stack([torch.matmul(self.smplx2smpl, v_) for v_ in smpl_out.vertices])
         pred_c_j3d = einsum(self.J_regressor, pred_c_verts, "j v, l v i -> l j i")
-        del smpl_out  # Prevent OOM
+        del smpl_out  # out-of-memory를 방지합니다.
         pred_incam_full_body_pose = torch.cat(
             (pred_smpl_params_incam["global_orient"], pred_smpl_params_incam["body_pose"]), dim=1
         )
 
-        # Metric of current sequence
+        # 현재 sequence의 metric
         batch_eval = {
             "pred_j3d": pred_c_j3d,
             "target_j3d": target_c_j3d,
@@ -93,16 +93,16 @@ class MetricMocap(pl.Callback):
         for k in camcoord_metrics:
             self.metric_aggregator[k][vid] = as_np_array(camcoord_metrics[k])
 
-    # ================== Epoch Summary  ================== #
+    # ================== Epoch 요약 ================== #
     def on_predict_epoch_end(self, trainer, pl_module):
-        """Without logger"""
+        """logger 없이 epoch 결과를 집계합니다."""
         local_rank, _ = trainer.local_rank, trainer.world_size
         monitor_metric = "ajae"
 
-        # Reduce metric_aggregator across all processes
+        # 모든 process의 metric_aggregator를 모아 reduce합니다.
         metric_keys = list(self.metric_aggregator.keys())
-        with torch.inference_mode(False):  # allow in-place operation of all_gather
-            metric_aggregator_gathered = all_gather(self.metric_aggregator)  # list of dict
+        with torch.inference_mode(False):  # all_gather의 in-place 연산을 허용합니다.
+            metric_aggregator_gathered = all_gather(self.metric_aggregator)  # dictionary 목록
         for metric_key in metric_keys:
             for d in metric_aggregator_gathered:
                 self.metric_aggregator[metric_key].update(d[metric_key])
@@ -112,7 +112,7 @@ class MetricMocap(pl.Callback):
         if total == 0:
             return
 
-        # print monitored metric per sequence
+        # sequence별 monitoring metric을 출력합니다.
         mm_per_seq = {k: v.mean() for k, v in self.metric_aggregator[monitor_metric].items()}
         if len(mm_per_seq) > 0:
             sorted_mm_per_seq = sorted(mm_per_seq.items(), key=lambda x: x[1], reverse=True)
@@ -124,7 +124,7 @@ class MetricMocap(pl.Callback):
                     + "\n------"
                 )
 
-        # average over all batches
+        # 모든 batch의 평균을 구합니다.
         metrics_avg = {
             k: np.concatenate(list(v.values())).mean() for k, v in self.metric_aggregator.items()
         }
@@ -138,7 +138,7 @@ class MetricMocap(pl.Callback):
         for k, v in metrics_avg.items():
             pl_module.log_dict({f"val_metric_{self.dataset_name}/{k}": v}, logger=True)
 
-        # reset
+        # 집계 상태를 초기화합니다.
         for k in self.metric_aggregator:
             self.metric_aggregator[k] = {}
 

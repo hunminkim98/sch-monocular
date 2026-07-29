@@ -13,7 +13,7 @@ from hmr4d.utils.geo.hmr_global import get_T_w2c_from_wcparams, get_R_c2gv
 
 
 class BedlamDatasetV2(ImgfeatMotionDatasetBase):
-    """mid_to_valid_range and features are newly generated."""
+    """새로 생성한 mid_to_valid_range와 feature를 사용하는 BEDLAM dataset입니다."""
 
     MIDINDEX_TO_LOAD = {
         "all60": ("mid_to_valid_range_all60.pt", "imgfeats/bedlam_all60"),
@@ -23,8 +23,8 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
     def __init__(
         self,
         mid_indices=["all60", "maxspan60"],
-        lazy_load=True,  # Load from disk when needed
-        random1024=False,  # Faster loading for debugging
+        lazy_load=True,  # 필요할 때 디스크에서 불러옵니다.
+        random1024=False,  # 디버그 시 빠르게 불러오기 위한 subset입니다.
     ):
         self.root = Path("inputs/BEDLAM/hmr4d_support")
         self.min_motion_frames = 60
@@ -32,7 +32,7 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
         self.lazy_load = lazy_load
         self.random1024 = random1024
 
-        # speficify mid_index to handle
+        # 처리할 mid index를 지정합니다.
         if not isinstance(mid_indices, list):
             mid_indices = [mid_indices]
         self.mid_indices = mid_indices
@@ -43,21 +43,21 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
     def _load_dataset(self):
         Log.info(f"[{self.dataset_name}] Loading from {self.root}")
         tic = time()
-        # Load mid to valid range
+        # mid별 유효 범위를 불러옵니다.
         self.mid_to_valid_range = {}
         self.mid_to_imgfeat_dir = {}
         for m in self.mid_indices:
             fn, feat_dir = self.MIDINDEX_TO_LOAD[m]
-            # load information about sequences: vidname and start and end frame
+            # sequence의 video 이름과 시작·끝 frame 정보를 불러옵니다.
             mid_to_valid_range_ = torch.load(self.root / fn)
             self.mid_to_valid_range.update(mid_to_valid_range_)
-            # load img features
+            # image feature를 불러옵니다.
             self.mid_to_imgfeat_dir.update(
                 {mid: self.root / feat_dir for mid in mid_to_valid_range_}
             )
 
-        # Load motionfiles
-        if self.random1024:  # Debug, faster loading
+        # motion 파일을 불러옵니다.
+        if self.random1024:  # 디버그 시 빠르게 불러옵니다.
             try:
                 Log.info(f"[{self.dataset_name}] Loading 1024 samples for debugging ...")
                 self.motion_files = torch.load(self.root / "smplpose_v2_random1024.pth")
@@ -85,17 +85,17 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
 
     def _load_data(self, idx):
         mid = self.idx2meta[idx]
-        # neutral smplx : "pose": (F, 63), "trans": (F, 3), "beta": (10),
-        #           and : "skeleton": (J, 3)
+        # neutral SMPL-X 데이터: "pose": (F, 63), "trans": (F, 3), "beta": (10),
+        #                "skeleton": (J, 3)
         data = self.motion_files[mid].copy()
 
-        # Random select a subset
+        # subset을 무작위로 선택합니다.
         range1, range2 = self.mid_to_valid_range[mid]  # [range1, range2)
         mlength = range2 - range1
         min_motion_len = self.min_motion_frames
         max_motion_len = self.max_motion_frames
 
-        if mlength < min_motion_len:  # the minimal mlength is 30 when generating data
+        if mlength < min_motion_len:  # 데이터 생성 시 최소 mlength는 30입니다.
             start = range1
             length = mlength
         else:
@@ -106,16 +106,16 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
         data["start_end"] = (start, end)
         data["length"] = length
 
-        # Update data to a subset
+        # 선택한 subset으로 데이터를 갱신합니다.
         for k, v in data.items():
             if isinstance(v, torch.Tensor) and len(v.shape) > 1 and k != "skeleton":
                 data[k] = v[start:end]
 
-        # Load img(as feature) : {mid -> 'features', 'bbx_xys', 'img_wh', 'start_end'}
+        # image feature를 불러옵니다: {mid -> 'features', 'bbx_xys', 'img_wh', 'start_end'}
         imgfeat_dir = self.mid_to_imgfeat_dir[mid]
         f_img_dict = torch.load(imgfeat_dir / mid2featname(mid))
 
-        # remap (start, end)
+        # (start, end)를 feature 범위에 맞게 다시 매핑합니다.
         start_mapped = start - f_img_dict["start_end"][0]
         end_mapped = end - f_img_dict["start_end"][0]
 
@@ -130,7 +130,7 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
     def _process_data(self, data, idx):
         length = data["length"]
 
-        # SMPL params in cam
+        # camera 좌표계의 SMPL 파라미터
         body_pose = data["pose"][:, 3:]  # (F, 63)
         betas = data["beta"].repeat(length, 1)  # (F, 10)
         global_orient = data["global_orient_incam"]  # (F, 3)
@@ -142,7 +142,7 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
             "global_orient": global_orient,
         }
 
-        # SMPL params in world
+        # world 좌표계의 SMPL 파라미터
         global_orient_w = data["pose"][:, :3]  # (F, 3)
         transl_w = data["trans"]  # (F, 3)
         smpl_params_w = {
@@ -152,7 +152,7 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
             "global_orient": global_orient_w,
         }
 
-        gravity_vec = torch.tensor([0, -1, 0], dtype=torch.float32)  # (3), BEDLAM is ay
+        gravity_vec = torch.tensor([0, -1, 0], dtype=torch.float32)  # (3), BEDLAM은 ay 좌표계입니다.
         T_w2c = get_T_w2c_from_wcparams(
             global_orient_w=global_orient_w,
             transl_w=transl_w,
@@ -162,12 +162,12 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
         )  # (F, 4, 4)
         R_c2gv = get_R_c2gv(T_w2c[:, :3, :3], gravity_vec)  # (F, 3, 3)
 
-        # cam_angvel (slightly different from WHAM)
+        # camera angular velocity는 WHAM과 약간 다르게 계산합니다.
         cam_angvel = compute_cam_angvel(T_w2c[:, :3, :3])  # (F, 6)
 
         f_imgseq = data["f_imgseq"]
 
-        # Returns: do not forget to make it batchable! (last lines)
+        # 반환 직전에 batch로 묶을 수 있는 길이로 맞춰야 합니다.
         max_len = self.max_motion_frames
         video_path = data["vid"].split("/bedlam_download/")[-1]
         video_path = video_path.split(".mp4-")[0]
@@ -200,7 +200,7 @@ class BedlamDatasetV2(ImgfeatMotionDatasetBase):
             },
         }
 
-        # Batchable
+        # batch로 묶을 수 있는 길이로 맞춥니다.
         return_data["smpl_params_c"] = repeat_to_max_len_dict(return_data["smpl_params_c"], max_len)
         return_data["smpl_params_w"] = repeat_to_max_len_dict(return_data["smpl_params_w"], max_len)
         return_data["R_c2gv"] = repeat_to_max_len(return_data["R_c2gv"], max_len)

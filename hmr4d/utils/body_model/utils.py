@@ -85,7 +85,7 @@ SMPLH_RIGHT_ARM = ['right_collar', 'right_shoulder', 'right_elbow', 'right_wrist
 SMPLH_HEAD = ['neck', 'head']
 SMPLH_SPINE = ['spine1', 'spine2', 'spine3']
 
-# name to 21 index (without pelvis, hand, and extra)
+# 이름을 pelvis, hand, extra joint를 제외한 21개 index로 변환한다.
 _name_2_idx = {j: i for i, j in enumerate(SMPLH_JOINT_NAMES[1:22])}
 SMPLH_PART_IDX = {
     'left_leg': [_name_2_idx[x] for x in SMPLH_LEFT_LEG],
@@ -97,19 +97,19 @@ SMPLH_PART_IDX = {
     'right_arm_and_leg': [_name_2_idx[x] for x in SMPLH_RIGHT_ARM + SMPLH_RIGHT_LEG],
 }
 
-# name to full index
+# 이름을 전체 index로 변환한다.
 _name_2_idx_full = {j: i for i, j in enumerate(SMPLH_JOINT_NAMES)}
 SMPLH_PART_IDX_FULL = {
     'lower_body': [_name_2_idx_full[x] for x in ['pelvis'] + SMPLH_LEFT_LEG + SMPLH_RIGHT_LEG]
 }
 
-# ===== ⬇️ Fitting optimizer ⬇️ ===== #
+# ===== ⬇️ fitting optimizer ⬇️ ===== #
 SMPL_JOINTS = {'hips': 0, 'leftUpLeg': 1, 'rightUpLeg': 2, 'spine': 3, 'leftLeg': 4, 'rightLeg': 5,
                'spine1': 6, 'leftFoot': 7, 'rightFoot': 8, 'spine2': 9, 'leftToeBase': 10, 'rightToeBase': 11,
                'neck': 12, 'leftShoulder': 13, 'rightShoulder': 14, 'head': 15, 'leftArm': 16, 'rightArm': 17,
                'leftForeArm': 18, 'rightForeArm': 19, 'leftHand': 20, 'rightHand': 21}
 
-# chosen virtual mocap markers that are "keypoints" to work with
+# keypoint로 사용할 가상 mocap marker
 KEYPT_VERTS = [4404, 920, 3076, 3169, 823, 4310, 1010, 1085, 4495, 4569, 6615, 3217, 3313, 6713,
                6785, 3383, 6607, 3207, 1241, 1508, 4797, 4122, 1618, 1569, 5135, 5040, 5691, 5636,
                5404, 2230, 2173, 2108, 134, 3645, 6543, 3123, 3024, 4194, 1306, 182, 3694, 4294, 744]

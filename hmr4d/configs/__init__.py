@@ -12,14 +12,14 @@ MainStore = ConfigStore.instance()
 
 
 def register_store_footmr():
-    """Register group options to MainStore"""
+    """group 옵션을 MainStore에 등록합니다."""
     from . import store_footmr
 
 
 def parse_args_to_cfg():
     """
-    Use minimal Hydra API to parse args and return cfg.
-    This function don't do _run_hydra which create log file hierarchy.
+    최소한의 Hydra API로 인자를 해석하고 cfg를 반환합니다.
+    log 파일 계층을 만드는 ``_run_hydra``는 실행하지 않습니다.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-name", "-cn", default="train")
@@ -30,7 +30,7 @@ def parse_args_to_cfg():
     )
     args = parser.parse_args()
 
-    # Cfg
+    # 설정 구성
     with initialize_config_module(version_base="1.3", config_module=f"hmr4d.configs"):
         cfg = compose(config_name=args.config_name, overrides=args.overrides)
 

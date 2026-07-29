@@ -9,7 +9,7 @@ optimizer_cfgs = {
     "adamw_1e-4": builds(AdamW, lr=1e-4, zen_partial=True),
     "adamw_5e-5": builds(AdamW, lr=5e-5, zen_partial=True),
     "adamw_1e-5": builds(AdamW, lr=1e-5, zen_partial=True),
-    # zero-shot text-to-image generation
+    # zero-shot text-to-image 생성
     "adamw_1e-3_dalle": builds(AdamW, lr=1e-3, weight_decay=1e-4, zen_partial=True),
 }
 

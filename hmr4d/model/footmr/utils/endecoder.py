@@ -20,16 +20,16 @@ from . import stats_compose
 class EnDecoder(nn.Module):
     def __init__(self, stats_name="DEFAULT_01", noise_pose_k=10):
         super().__init__()
-        # Load mean, std
+        # 평균과 표준편차를 불러옵니다.
         stats = getattr(stats_compose, stats_name)
         Log.info(f"[EnDecoder] Use {stats_name} for statistics!")
         self.register_buffer("mean", torch.tensor(stats["mean"]).float(), False)
         self.register_buffer("std", torch.tensor(stats["std"]).float(), False)
 
-        # option
+        # 옵션
         self.noise_pose_k = noise_pose_k
 
-        # smpl
+        # SMPL-X 모델
         self.smplx_model = make_smplx("supermotion_v437coco23")
         parents = self.smplx_model.parents[:22]
         self.register_buffer("parents_tensor", parents, False)
@@ -37,12 +37,14 @@ class EnDecoder(nn.Module):
 
     def get_noisyobs(self, data, return_type="r6d"):
         """
-        Noisy observation contains local pose with noise
-        Args:
+        noisy observation에는 noise가 추가된 local pose가 들어 있습니다.
+
+        인자:
             data (dict):
                 body_pose: (B, L, J*3) or (B, L, J, 3)
-        Returns:
-            noisy_bosy_pose: (B, L, J, 6) or (B, L, J, 3) or (B, L, 3, 3) depends on return_type
+        반환:
+            noisy_bosy_pose: return_type에 따라 (B, L, J, 6), (B, L, J, 3)
+                또는 (B, L, 3, 3)
         """
         body_pose = data["body_pose"]  # (B, L, 63)
         B, L, _ = body_pose.shape
@@ -74,7 +76,7 @@ class EnDecoder(nn.Module):
         """body_pose_r6d: (B, L, {J*6}/{J, 6}) ->  (B, L, J*6)"""
         B, L = body_pose_r6d.shape[:2]
         body_pose_r6d = body_pose_r6d.reshape(B, L, -1)
-        if self.mean.shape[-1] == 1:  # no mean, std provided
+        if self.mean.shape[-1] == 1:  # 평균과 표준편차가 제공되지 않은 경우
             return body_pose_r6d
         body_pose_r6d = (body_pose_r6d - self.mean[:126]) / self.std[:126]  # (B, L, C)
         return body_pose_r6d
@@ -88,11 +90,11 @@ class EnDecoder(nn.Module):
         get_intermediate=False,
     ):
         """
-        Args:
+        인자:
             body_pose: (B, L, 63)
             betas: (B, L, 10)
             global_orient: (B, L, 3)
-        Returns:
+        반환:
             joints: (B, L, 22, 3)
         """
         B, L = body_pose.shape[:2]
@@ -124,7 +126,7 @@ class EnDecoder(nn.Module):
 
     def encode(self, inputs):
         """
-        definition: {
+        구성:
                 body_pose_r6d,  # (B, L, (J-1)*6) -> 0:126
                 betas, # (B, L, 10) -> 126:136
                 global_orient_r6d,  # (B, L, 6) -> 136:142  incam
@@ -133,7 +135,7 @@ class EnDecoder(nn.Module):
             }
         """
         B, L = inputs["smpl_params_c"]["body_pose"].shape[:2]
-        # cam
+        # camera 좌표계
         smpl_params_c = inputs["smpl_params_c"]
         body_pose = smpl_params_c["body_pose"].reshape(B, L, 21, 3)
         body_pose_r6d = matrix_to_rotation_6d(axis_angle_to_matrix(body_pose)).flatten(-2)
@@ -141,22 +143,22 @@ class EnDecoder(nn.Module):
         global_orient_R = axis_angle_to_matrix(smpl_params_c["global_orient"])
         global_orient_r6d = matrix_to_rotation_6d(global_orient_R)
 
-        # global
+        # global 좌표계
         R_c2gv = inputs["R_c2gv"]  # (B, L, 3, 3)
         global_orient_gv_r6d = matrix_to_rotation_6d(R_c2gv @ global_orient_R)
 
-        # local_transl_vel
+        # local translation velocity를 계산합니다.
         smpl_params_w = inputs["smpl_params_w"]
         local_transl_vel = get_local_transl_vel(
             smpl_params_w["transl"], smpl_params_w["global_orient"]
         )
-        if False:  # debug
+        if False:  # 디버그
             transl_recover = rollout_local_transl_vel(
                 local_transl_vel, smpl_params_w["global_orient"], smpl_params_w["transl"][:, [0]]
             )
             print((transl_recover - smpl_params_w["transl"]).abs().max())
 
-        # returns
+        # 반환값 구성
         x = torch.cat(
             [body_pose_r6d, betas, global_orient_r6d, global_orient_gv_r6d, local_transl_vel],
             dim=-1,
@@ -166,7 +168,7 @@ class EnDecoder(nn.Module):
 
     def encode_translw(self, inputs):
         """
-        definition: {
+        구성:
                 body_pose_r6d,  # (B, L, (J-1)*6) -> 0:126
                 betas, # (B, L, 10) -> 126:136
                 global_orient_r6d,  # (B, L, 6) -> 136:142  incam
@@ -174,13 +176,13 @@ class EnDecoder(nn.Module):
                 local_transl_vel,  # (B, L, 3) -> 148:151, smpl-coord
             }
         """
-        # local_transl_vel
+        # local translation velocity를 계산합니다.
         smpl_params_w = inputs["smpl_params_w"]
         local_transl_vel = get_local_transl_vel(
             smpl_params_w["transl"], smpl_params_w["global_orient"]
         )
 
-        # returns
+        # 반환값 구성
         x = local_transl_vel
         x_norm = (x - self.mean[-3:]) / self.std[-3:]
         return x_norm
@@ -189,7 +191,7 @@ class EnDecoder(nn.Module):
         return x_norm * self.std[-3:] + self.mean[-3:]
 
     def decode(self, x_norm):
-        """x_norm: (B, L, C)"""
+        """정규화된 x_norm의 shape은 (B, L, C)입니다."""
         B, L, C = x_norm.shape
         x = (x_norm * self.std) + self.mean
 

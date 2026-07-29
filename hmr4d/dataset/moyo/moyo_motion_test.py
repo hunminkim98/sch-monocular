@@ -18,12 +18,12 @@ class MoyoSmplFullSeqDataset(data.Dataset):
         self.labels = torch.load(self.moyo_dir / "moyo_smplx_test_labels.pt")
         # ['gender', 'vidname', 'img_wh', 'K_fullimg', 'T_w2c',
         # 'imgname', 'smplx_params', 'bbx_xyxy']
-        # uses v_template instead of betas (moyo_test_gt_v_template.pt)
+        # beta 대신 v_template을 사용합니다(moyo_test_gt_v_template.pt).
         self.imgfeats = torch.load(self.moyo_dir / "test_vit_imgfeats.pt")
         self.vid2kp2d = torch.load(self.moyo_dir / "test_vitpose17.pt")
         self.sapiens133 = torch.load(self.moyo_dir / "test_sapiens133.pt")
 
-        # Setup dataset index
+        # dataset index를 구성합니다.
         self.idx2meta = list(self.labels)
         Log.info(f"[{self.dataset_name}] {len(self.idx2meta)} sequences.")
 
@@ -38,7 +38,7 @@ class MoyoSmplFullSeqDataset(data.Dataset):
         meta = {"dataset_id": self.dataset_name, "vid": vid}
         data.update({"meta": meta})
 
-        # Add useful data
+        # 필요한 데이터를 추가합니다.
         label = self.labels[vid]
         width_height = label["img_wh"]
         gender = label["gender"]
@@ -46,12 +46,12 @@ class MoyoSmplFullSeqDataset(data.Dataset):
 
         # K_fullimg = label["K_fullimg"]  # (3, 3)
         data.update({"gt_K": label["K_fullimg"]})
-        # use approximated intrinsics:
+        # 근사 intrinsic 파라미터를 사용합니다.
         K_fullimg = estimate_K(label["img_wh"][0], label["img_wh"][1])
         T_w2c = label["T_w2c"]
         imgname = label["imgname"]
         smplx_params = label["smplx_params"]
-        # use neutral hand pose for evaluation
+        # 평가에는 neutral hand pose를 사용합니다.
         if "left_hand_pose" in smplx_params:
             del smplx_params["left_hand_pose"]
         if "right_hand_pose" in smplx_params:
@@ -62,8 +62,8 @@ class MoyoSmplFullSeqDataset(data.Dataset):
 
         data.update({
             "length": length,  # F
-            "smplx_params": smplx_params,  # world
-            "gender": gender,  # str
+            "smplx_params": smplx_params,  # world 좌표계
+            "gender": gender,  # 문자열
             "T_w2c": label["T_w2c"],  # (4, 4)
             "img_wh": width_height,
             "num_seqs": len(self.idx2meta),
@@ -71,7 +71,7 @@ class MoyoSmplFullSeqDataset(data.Dataset):
         })
         data["K_fullimg"] = K_fullimg
 
-        # Preprocessed:  bbx, kp2d, image as feature
+        # 전처리된 bounding box, kp2d, image feature
         bboxpt = torch.from_numpy(bbx_xyxy)
         bbx_xys = get_bbx_xys_from_xyxy(bboxpt, base_enlarge=1.2).float()  # (F, 3)
         kp2d = self.vid2kp2d[vid][:, :17]  # (F, 17, 3)
@@ -83,7 +83,7 @@ class MoyoSmplFullSeqDataset(data.Dataset):
         data.update({"bbx_xys": bbx_xys, "kp2d": kp2d, "cam_angvel": cam_angvel})
         data["f_imgseq"] = f_imgseq  # (F, 1024)
 
-        # to render a video
+        # video rendering용 정보
         video_path = self.moyo_dir / f"videos/{vidname}.mp4"
         frame_id = torch.arange(length)
         ds = 0.5
@@ -119,7 +119,7 @@ class MoyoSmplFullSeqDataset(data.Dataset):
         return data
 
 
-# MOYO
+# MOYO 설정을 등록합니다.
 MainStore.store(
     name="all",
     node=builds(MoyoSmplFullSeqDataset, populate_full_signature=True),

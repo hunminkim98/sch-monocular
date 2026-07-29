@@ -5,48 +5,50 @@ from pathlib import Path
 from .viz2d import plot_matches, plot_images, save_plot
 
 # ================================
-# Visualization
+# 시각화
 # ================================
 
 
 def visualize_matches(img0, img1, kp0, kp1, output_dir):
-    """Visualize the matched features between two images."""
+    """두 image 사이에서 matching된 feature를 시각화합니다."""
     plot_images([img0, img1], ["Image 0", "Image 1"])
     plot_matches(kp0, kp1)
     save_plot(Path(output_dir) / "matches.png")
 
 
 def visualize_T_w2c_rotations(T_w2c_list, output_dir):
-    """可视化相机旋转轨迹，并考虑 OpenCV 坐标系转换，
-    使得相机的 x 轴保持右向，z 轴（光轴）变为水平前向，
-    而相机的 y 轴（朝下）对应于 plt 的 -z 轴（即向下）。"""
+    """OpenCV 좌표계 변환을 고려해 camera rotation trajectory를 시각화합니다.
 
-    # 定义转换矩阵：将 OpenCV 坐标 (x:right, y:down, z:forward)
-    # 转换为 world 坐标 (x:right, y:forward, z:up)
+    camera x축은 오른쪽, z축(optical axis)은 수평 전방을 향하게 하며, 아래쪽을
+    향하는 camera y축은 Matplotlib의 -z축에 대응시킵니다.
+    """
+
+    # OpenCV 좌표(x:right, y:down, z:forward)를
+    # world 좌표(x:right, y:forward, z:up)로 바꾸는 matrix입니다.
     R_align = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
 
-    # 原始光轴：在 OpenCV 中通常为 [0, 0, 1]
+    # OpenCV의 기본 optical axis는 일반적으로 [0, 0, 1]입니다.
     normal_vector = np.array([0, 0, 1])
     aligned_rotated_normals = []
 
-    # 对每一帧的旋转矩阵，先计算光轴旋转后的方向，再进行坐标转换
+    # frame별로 회전된 optical axis 방향을 계산한 뒤 좌표계를 변환합니다.
     for T in T_w2c_list:
         R = T[:3, :3]
         rotated_normal = R.T @ normal_vector
-        # 应用对齐变换
+        # 정렬 transformation을 적용합니다.
         aligned_normal = R_align @ rotated_normal
         aligned_rotated_normals.append(aligned_normal)
     aligned_rotated_normals = np.array(aligned_rotated_normals)
 
-    # ------------------ 3D 可视化 ------------------
+    # ------------------ 3D 시각화 ------------------
     fig = plt.figure(figsize=(12, 10))
     ax = fig.add_subplot(111, projection="3d")
 
-    # 绘制调整后的旋转法向量轨迹
+    # 정렬된 rotation normal trajectory를 그립니다.
     ax.plot(aligned_rotated_normals[:, 0], aligned_rotated_normals[:, 1], aligned_rotated_normals[:, 2], "b-")
     ax.scatter(aligned_rotated_normals[:, 0], aligned_rotated_normals[:, 1], aligned_rotated_normals[:, 2], c="r", s=10)
 
-    # 标记起点与终点
+    # 시작점과 끝점을 표시합니다.
     ax.scatter(
         aligned_rotated_normals[0, 0],
         aligned_rotated_normals[0, 1],
@@ -66,7 +68,7 @@ def visualize_T_w2c_rotations(T_w2c_list, output_dir):
         label="End",
     )
 
-    # 绘制单位球以便参考：对球面上每个点也应用相同的转换
+    # 기준용 unit sphere의 각 점에도 같은 변환을 적용해 그립니다.
     u, v = np.mgrid[0 : 2 * np.pi : 20j, 0 : np.pi : 10j]
     x = np.cos(u) * np.sin(v)
     y = np.sin(u) * np.sin(v)
@@ -78,7 +80,7 @@ def visualize_T_w2c_rotations(T_w2c_list, output_dir):
     Z_aligned = sphere_points_aligned[:, :, 2]
     ax.plot_wireframe(X_aligned, Y_aligned, Z_aligned, color="gray", alpha=0.2)
 
-    # 设置坐标轴比例和范围
+    # axis 비율과 범위를 설정합니다.
     ax.set_box_aspect([1, 1, 1])
     ax.set_xlim([-1.1, 1.1])
     ax.set_ylim([-1.1, 1.1])
@@ -90,7 +92,7 @@ def visualize_T_w2c_rotations(T_w2c_list, output_dir):
     ax.set_title("Camera Rotation T_w2c_list (3D) - Aligned to Camera Conventions")
     ax.legend()
 
-    # 添加帧数标记
+    # frame 번호를 표시합니다.
     frame_count = len(T_w2c_list)
     interval = max(1, frame_count // 10)
     for i in range(0, frame_count, interval):
@@ -107,15 +109,14 @@ def visualize_T_w2c_rotations(T_w2c_list, output_dir):
 
 
 def visualize_rotation_angles(T_w2c_list, output_dir):
-    """Visualize rotation as Euler angles over time."""
-    # Extract rotation matrices
+    """시간에 따른 rotation을 Euler angle로 시각화합니다."""
+    # rotation matrix를 추출합니다.
     rotations = [T[:3, :3] for T in T_w2c_list]
 
-    # Convert to Euler angles (in degrees)
+    # degree 단위의 Euler angle로 변환합니다.
     euler_angles = []
     for R in rotations:
-        # Convert rotation matrix to Euler angles
-        # Using the 'xyz' convention - roll, pitch, yaw
+        # rotation matrix를 xyz 순서의 roll, pitch, yaw로 변환합니다.
         sy = np.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
         singular = sy < 1e-6
 
@@ -128,12 +129,12 @@ def visualize_rotation_angles(T_w2c_list, output_dir):
             pitch = np.arctan2(-R[2, 0], sy)
             yaw = 0
 
-        # Convert to degrees
+        # radian을 degree로 변환합니다.
         euler_angles.append([np.degrees(roll), np.degrees(pitch), np.degrees(yaw)])
 
     euler_angles = np.array(euler_angles)
 
-    # Create plot
+    # plot을 생성합니다.
     fig, ax = plt.subplots(figsize=(12, 8))
     frame_indices = np.arange(len(T_w2c_list))
 
@@ -152,30 +153,30 @@ def visualize_rotation_angles(T_w2c_list, output_dir):
 
 
 # ================================
-# Video Reader
+# video reader
 # ================================
 
 
 def read_video_frame_np(video_path, frame_index):
-    # Use opencv to read frame at frame_index
+    # OpenCV로 frame_index 위치의 frame을 읽습니다.
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
     ret, frame = cap.read()
     cap.release()
 
-    # Convert to RGB
+    # RGB로 변환합니다.
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return frame
 
 
 # ================================
-# Camera
+# camera
 # ================================
 
 
 def focal_length_from_mm(width, height, mm=24):
     """
-    Convert full-frame focal length to image sensor focal length.
+    full-frame focal length를 image sensor의 focal length로 변환합니다.
     """
     diag_fullframe = (24**2 + 36**2) ** 0.5
     diag_img = (width**2 + height**2) ** 0.5

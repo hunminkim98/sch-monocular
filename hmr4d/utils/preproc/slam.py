@@ -18,7 +18,7 @@ from hmr4d.utils.geo.hmr_cam import estimate_focal_length
 class SLAMModel(object):
     def __init__(self, video_path, width, height, intrinsics=None, stride=1, skip=0, buffer=2048, resize=0.5):
         """
-        Args:
+        인자:
             intrinsics: [fx, fy, cx, cy]
         """
         if intrinsics is None:
@@ -68,7 +68,7 @@ class SLAMModel(object):
 
 
 def video_stream(queue, imagedir, intrinsics, stride, skip=0, resize=0.5):
-    """video generator"""
+    """video frame을 순차적으로 생성합니다."""
     assert len(intrinsics) == 4, "intrinsics should be [fx, fy, cx, cy]"
 
     cap = cv2.VideoCapture(imagedir)
@@ -77,10 +77,10 @@ def video_stream(queue, imagedir, intrinsics, stride, skip=0, resize=0.5):
         ret, image = cap.read()
 
     while True:
-        # Capture frame-by-frame
+        # frame 단위로 읽습니다.
         for _ in range(stride):
             ret, image = cap.read()
-            # if frame is read correctly ret is True
+            # frame을 정상적으로 읽으면 ret은 True입니다.
             if not ret:
                 break
 
@@ -96,9 +96,9 @@ def video_stream(queue, imagedir, intrinsics, stride, skip=0, resize=0.5):
 
         t += 1
 
-    queue.put((-1, image, intrinsics))  # -1 will terminate the process
+    queue.put((-1, image, intrinsics))  # -1을 보내 process를 종료합니다.
     cap.release()
 
-    # wait for the queue to be empty, otherwise the process will end immediately
+    # process가 즉시 끝나지 않도록 queue가 빌 때까지 기다립니다.
     while not queue.empty():
         time.sleep(1)

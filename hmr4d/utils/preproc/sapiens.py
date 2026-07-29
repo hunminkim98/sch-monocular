@@ -12,14 +12,14 @@ from tqdm import tqdm
 
 class SapiensPoseExtractor:
     def __init__(self, tqdm_leave=True):
-        self.number_joints = 133  # use coco-wholebody version
+        self.number_joints = 133  # COCO-WholeBody 버전을 사용합니다.
         ckpt_path = "inputs/checkpoints/sapiens/sapiens_2b_coco_wholebody_best_coco_wholebody_AP_745.pth"
         model_config = "hmr4d/configs/sapiens_2b-210e_coco_wholebody-1024x768.py"
 
         self.pose_estimator = init_pose_estimator(
             model_config,
             ckpt_path,
-            override_ckpt_meta=True,  # dont load the checkpoint meta data, load from config file
+            override_ckpt_meta=True,  # checkpoint metadata 대신 config 파일에서 설정을 읽습니다.
             device="cuda",
             cfg_options=dict(
                 model=dict(test_cfg=dict(output_heatmaps=False))))
@@ -28,7 +28,7 @@ class SapiensPoseExtractor:
 
     @torch.no_grad()
     def extract(self, video_path, outfolder, bbx_xyxy):
-        # extract video to images
+        # video를 image frame으로 추출합니다.
         Path(outfolder).mkdir(parents=True, exist_ok=True)
         call([
             'ffmpeg',
@@ -45,7 +45,7 @@ class SapiensPoseExtractor:
             pose_results = inference_topdown(self.pose_estimator, imgpath, bbx_xyxy[[i]])
             data_samples = merge_data_samples(pose_results)
             results = data_samples.get("pred_instances", None)
-            kpts = results["keypoints"][0][:23]  # select first 23 joints (17 coco + 6 feet)
+            kpts = results["keypoints"][0][:23]  # 앞의 23개 joint(COCO 17개와 발 6개)를 선택합니다.
             conf = results["keypoint_scores"][0][:23]
             pred_pose = np.concatenate((kpts, conf[:, None]), axis=1).astype(np.float32)
             poses_2d[i] = pred_pose

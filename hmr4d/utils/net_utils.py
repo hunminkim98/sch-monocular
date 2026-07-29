@@ -12,10 +12,10 @@ from hmr4d.utils.pylogger import Log
 
 def load_pretrained_model(model, ckpt_path):
     """
-    Load ckpt to model with strategy
+    model별 전략에 따라 checkpoint를 불러옵니다.
     """
     assert Path(ckpt_path).exists()
-    # use model's own load_pretrained_model method
+    # model 자체의 load_pretrained_model method가 있으면 사용합니다.
     if hasattr(model, "load_pretrained_model"):
         model.load_pretrained_model(ckpt_path)
     else:
@@ -26,17 +26,17 @@ def load_pretrained_model(model, ckpt_path):
 
 def find_last_ckpt_path(dirpath):
     """
-    Assume ckpt is named as e{}* or last*, following the convention of pytorch-lightning.
+    PyTorch Lightning 관례에 따라 checkpoint 이름이 e{}* 또는 last*라고 가정합니다.
     """
     assert dirpath is not None
     dirpath = Path(dirpath)
     assert dirpath.exists()
-    # Priority 1: last.ckpt
+    # 우선순위 1: last.ckpt
     auto_last_ckpt_path = dirpath / "last.ckpt"
     if auto_last_ckpt_path.exists():
         return auto_last_ckpt_path
 
-    # Priority 2
+    # 우선순위 2: 이름순으로 마지막 checkpoint
     model_paths = []
     for p in sorted(list(dirpath.glob("*.ckpt"))):
         if "last" in p.name:
@@ -50,7 +50,7 @@ def find_last_ckpt_path(dirpath):
 
 
 def get_resume_ckpt_path(resume_mode, ckpt_dir=None):
-    if Path(resume_mode).exists():  # This is a path
+    if Path(resume_mode).exists():  # 직접 지정한 경로입니다.
         return resume_mode
     assert resume_mode == "last"
     return find_last_ckpt_path(ckpt_dir)
@@ -58,12 +58,13 @@ def get_resume_ckpt_path(resume_mode, ckpt_dir=None):
 
 def select_state_dict_by_prefix(state_dict, prefix, new_prefix=""):
     """
-    For each weight that start with {old_prefix}, remove the {old_prefic} and form a new state_dict.
-    Args:
+    {old_prefix}로 시작하는 각 weight에서 prefix를 제거해 새 state_dict를 만듭니다.
+
+    인자:
         state_dict: dict
         prefix: str
-        new_prefix: str, if exists, the new key will be {new_prefix} + {old_key[len(prefix):]}
-    Returns:
+        new_prefix: 지정하면 새 key는 {new_prefix} + {old_key[len(prefix):]}입니다.
+    반환:
         state_dict_new: dict
     """
     state_dict_new = {}
@@ -80,12 +81,13 @@ def detach_to_cpu(in_dict):
 
 def recursive_to(x: Any, target: torch.device):
     """
-    Recursively transfer a batch of data to the target device
-    Args:
-        x (Any): Batch of data.
-        target (torch.device): Target device.
-    Returns:
-        Batch of data where all tensors are transfered to the target device.
+    batch 데이터를 재귀적으로 target device에 옮깁니다.
+
+    인자:
+        x (Any): batch 데이터
+        target (torch.device): target device
+    반환:
+        모든 tensor를 target device로 옮긴 batch 데이터
     """
     if isinstance(x, dict):
         return {k: recursive_to(v, target) for k, v in x.items()}
@@ -98,7 +100,7 @@ def recursive_to(x: Any, target: torch.device):
 
 
 def to_cuda(data):
-    """Move data in the batch to cuda(), carefully handle data that is not tensor"""
+    """tensor가 아닌 값은 유지하면서 batch 데이터를 CUDA로 옮깁니다."""
     if isinstance(data, torch.Tensor):
         return data.cuda()
     elif isinstance(data, dict):
@@ -117,14 +119,14 @@ def get_valid_mask(max_len, valid_len, device="cpu"):
 
 def length_to_mask(lengths, max_len):
     """
-    Returns: (B, max_len)
+    반환: (B, max_len)
     """
     mask = torch.arange(max_len, device=lengths.device).expand(len(lengths), max_len) < lengths.unsqueeze(1)
     return mask
 
 
 def repeat_to_max_len(x, max_len, dim=0):
-    """Repeat last frame to max_len along dim"""
+    """지정한 dim에서 마지막 frame을 반복해 max_len을 맞춥니다."""
     assert isinstance(x, torch.Tensor)
     if x.shape[dim] == max_len:
         return x

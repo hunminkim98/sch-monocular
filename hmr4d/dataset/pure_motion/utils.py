@@ -27,12 +27,12 @@ def interpolate_smpl_params(smpl_params, tgt_len):
     global_orient = smpl_params["global_orient"]  # (L, 3)
     transl = smpl_params["transl"]  # (L, 3)
 
-    # Interpolate
+    # 보간
     body_pose = rearrange(aa_to_r6d(body_pose.reshape(-1, 21, 3)), "l j c -> c j l")
     body_pose = F.interpolate(body_pose, tgt_len, mode="linear", align_corners=True)
     body_pose = r6d_to_aa(rearrange(body_pose, "c j l -> l j c")).reshape(-1, 63)
 
-    # although this should be the same as above, we do it for consistency
+    # 위 결과와 같아야 하지만 일관성을 위해 별도로 보간합니다.
     betas = rearrange(betas, "l c -> c 1 l")
     betas = F.interpolate(betas, tgt_len, mode="linear", align_corners=True)
     betas = rearrange(betas, "c 1 l -> l c")
@@ -51,7 +51,7 @@ def interpolate_smpl_params(smpl_params, tgt_len):
 
 
 def rotate_around_axis(global_orient, transl, axis="y"):
-    """Global coordinate augmentation. Random rotation around y-axis"""
+    """global 좌표계를 증강하기 위해 y축을 기준으로 무작위 회전합니다."""
     angle = torch.rand(1) * 2 * torch.pi
     if axis == "y":
         aa = torch.tensor([0.0, angle, 0.0]).float().unsqueeze(0)

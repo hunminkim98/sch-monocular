@@ -38,23 +38,23 @@ class BaseDataset(Dataset):
 
     def _process_data(self, data, idx):
         """
-        Args:
+        인자:
             data: dict {
                 "body_pose": (F, 63),
                 "betas": (F, 10),
-                "global_orient": (F, 3),  in the AY coordinates
-                "transl": (F, 3),  in the AY coordinates
+                "global_orient": (F, 3), AY 좌표계
+                "transl": (F, 3), AY 좌표계
             }
         """
         data_name = data["data_name"]
         vid = data["vid"]
         length = data["body_pose"].shape[0]
-        # Augmentation: betas, SMPL (gravity-axis)
+        # beta와 SMPL gravity axis를 증강합니다.
         body_pose = data["body_pose"]
         betas = augment_betas(data["betas"], std=0.1)
         global_orient_w, transl_w = rotate_around_axis(data["global_orient"], data["transl"], axis="y")
 
-        # SMPL_params in world
+        # world 좌표계의 SMPL 파라미터
         smpl_params_w = {
             "body_pose": body_pose,  # (F, 63)
             "betas": betas,  # (F, 10)
@@ -63,9 +63,9 @@ class BaseDataset(Dataset):
         }
         del data
 
-        # Camera trajectory augmentation
+        # camera trajectory 증강
         if self.cam_augmentation == "v11":
-            # interleave repeat to original length (faster)
+            # 원래 길이까지 interleave repeat하여 계산 속도를 높입니다.
             N = 10
             w_j3d = self.smplx_lite(
                 smpl_params_w["body_pose"][::N],
@@ -83,7 +83,7 @@ class BaseDataset(Dataset):
         else:
             raise NotImplementedError
 
-        # SMPL params in cam
+        # camera 좌표계의 SMPL 파라미터
         offset = self.smplx.get_skeleton(smpl_params_w["betas"][0])[0]  # (3)
         global_orient_c, transl_c = get_c_rootparam(
             smpl_params_w["global_orient"],
@@ -98,16 +98,16 @@ class BaseDataset(Dataset):
             "transl": transl_c,  # (F, 3)
         }
 
-        # World params
-        gravity_vec = torch.tensor([0, -1, 0], dtype=torch.float32)  # (3), BEDLAM is ay
+        # world 좌표계 파라미터
+        gravity_vec = torch.tensor([0, -1, 0], dtype=torch.float32)  # (3), BEDLAM은 ay 좌표계입니다.
         R_c2gv = get_R_c2gv(T_w2c[:, :3, :3], gravity_vec)  # (F, 3, 3)
 
-        # Image
+        # image 관련 입력
         K_fullimg = K_fullimg.repeat(length, 1, 1)  # (F, 3, 3)
         cam_angvel = compute_cam_angvel(T_w2c[:, :3, :3])  # (F, 6)
 
-        # Returns: do not forget to make it batchable! (last lines)
-        # NOTE: bbx_xys and f_imgseq will be added later
+        # 반환값은 마지막 단계에서 batch로 묶을 수 있게 만들어야 합니다.
+        # 참고: bbx_xys와 f_imgseq는 이후에 추가됩니다.
         max_len = length
         kp2d = torch.zeros(length, 23, 3)
         return_data = {
@@ -118,9 +118,9 @@ class BaseDataset(Dataset):
             "smpl_params_w": smpl_params_w,
             "R_c2gv": R_c2gv,  # (F, 3, 3)
             "gravity_vec": gravity_vec,  # (3)
-            "bbx_xys": torch.zeros((length, 3)),  # (F, 3)  # NOTE: a placeholder
+            "bbx_xys": torch.zeros((length, 3)),  # (F, 3) 임시 값
             "K_fullimg": K_fullimg,  # (F, 3, 3)
-            "f_imgseq": torch.zeros((length, 1024)),  # (F, D)  # NOTE: a placeholder
+            "f_imgseq": torch.zeros((length, 1024)),  # (F, D) 임시 값
             "kp2d": kp2d,  # (F, J, 3)
             "cam_angvel": cam_angvel,  # (F, 6)
             "mask": {
@@ -132,7 +132,7 @@ class BaseDataset(Dataset):
             },
         }
 
-        # Batchable
+        # batch로 묶을 수 있는 길이로 맞춥니다.
         return_data["smpl_params_c"] = repeat_to_max_len_dict(return_data["smpl_params_c"], max_len)
         return_data["smpl_params_w"] = repeat_to_max_len_dict(return_data["smpl_params_w"], max_len)
         return_data["R_c2gv"] = repeat_to_max_len(return_data["R_c2gv"], max_len)

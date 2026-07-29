@@ -30,7 +30,7 @@ def apply_rotary_emb(freqs, t, start_index=0, scale=1.0, seq_dim=-2):
 
 
 def get_encoding(d_model, max_seq_len=4096):
-    """Return: (L, D)"""
+    """(L, D) 형태의 encoding을 반환한다."""
     t = torch.arange(max_seq_len).float()
     freqs = 1.0 / (10000 ** (torch.arange(0, d_model, 2).float() / d_model))
     freqs = torch.einsum("i, j -> i j", t, freqs)
@@ -39,14 +39,14 @@ def get_encoding(d_model, max_seq_len=4096):
 
 
 class ROPE(nn.Module):
-    """Minimal impl of a lang-style positional encoding."""
+    """언어 모델 방식 positional encoding의 최소 구현이다."""
 
     def __init__(self, d_model, max_seq_len=4096):
         super().__init__()
         self.d_model = d_model
         self.max_seq_len = max_seq_len
 
-        # Pre-cache a freqs tensor
+        # 주파수 tensor를 미리 계산해 둔다.
         encoding = get_encoding(d_model, max_seq_len)
         self.register_buffer("encoding", encoding, False)
 
