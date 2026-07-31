@@ -26,7 +26,9 @@ from hmr4d.utils.video_io_utils import (
     get_video_reader,
     get_writer,
     merge_videos_horizontal,
+    normalize_video_to_30fps,
     read_video_np,
+    resolve_focal_length_35mm,
     save_video,
 )
 from hmr4d.utils.vis.cv2_utils import draw_bbx_xyxy_on_image_batch, draw_coco_skeleton_batch
@@ -37,6 +39,7 @@ from hmr4d.utils.vis.renderer import (
 )
 
 CRF = 23  # 17은 무손실이며, 6이 증가할 때마다 mp4 크기가 절반으로 줄어듭니다.
+DEFAULT_FOCAL_MM = (24**2 + 36**2) ** 0.5
 
 
 def parse_args_to_cfg():
@@ -63,9 +66,8 @@ def parse_args_to_cfg():
         "--f_mm",
         type=int,
         default=None,
-        help="Focal length of fullframe camera in mm. Leave it as None to use default values."
-        "For iPhone 15p, the [0.5x, 1x, 2x, 3x] lens have typical values [13, 24, 48, 77]."
-        "If the camera zoom in a lot, you can try 135, 200 or even larger values.",
+        help="35mm-equivalent focal length in mm. When omitted, read verified original-video "
+        "metadata and otherwise use the GVHMR default estimate.",
     )
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
     args = parser.parse_args()
@@ -76,18 +78,31 @@ def parse_args_to_cfg():
     length, width, height = get_video_lwh(video_path)
     Log.info(f"[Input]: {video_path}")
     Log.info(f"(L, W, H) = ({length}, {width}, {height})")
+
+    selected_f_mm, focal_source = resolve_focal_length_35mm(video_path, args.f_mm)
+    if focal_source == "cli":
+        Log.info(f"[Focal] {selected_f_mm:g} mm equivalent from --f_mm")
+    elif focal_source == "metadata":
+        Log.info(f"[Focal] {selected_f_mm:g} mm equivalent from original video metadata")
+    else:
+        Log.info("[Focal] No verified metadata; using the GVHMR default estimate")
+
+    focal_suffix = "default"
+    if selected_f_mm is not None:
+        focal_suffix = f"{selected_f_mm:g}".replace(".", "p")
+
     # 설정
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
-            f"video_name={video_path.stem}",
+            f"video_name={video_path.stem}_fps30_f{focal_suffix}",
             f"static_cam={args.static_cam}",
             f"verbose={args.verbose}",
             f"use_dpvo={args.use_dpvo}",
             f"no_postproc={args.no_postproc}",
             f"use_sapiens={args.use_sapiens}",
         ]
-        if args.f_mm is not None:
-            overrides.append(f"f_mm={args.f_mm}")
+        if selected_f_mm is not None:
+            overrides.append(f"f_mm={selected_f_mm}")
 
         # 출력 루트 변경을 허용합니다.
         if args.output_root is not None:
@@ -100,18 +115,9 @@ def parse_args_to_cfg():
     Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
     Path(cfg.preprocess_dir).mkdir(parents=True, exist_ok=True)
 
-    # 원본 입력 영상을 video_path로 복사합니다.
-    Log.info(f"[Copy Video] {video_path} -> {cfg.video_path}")
-    if (
-        not Path(cfg.video_path).exists()
-        or get_video_lwh(video_path)[0] != get_video_lwh(cfg.video_path)[0]
-    ):
-        reader = get_video_reader(video_path)
-        writer = get_writer(cfg.video_path, fps=30, crf=CRF)
-        for img in tqdm(reader, total=get_video_lwh(video_path)[0], desc="Copy"):
-            writer.write_frame(img)
-        writer.close()
-        reader.close()
+    # FootMR checkpoint의 시간축에 맞춰 canonical 30fps 입력을 준비합니다.
+    Log.info(f"[Normalize Video] {video_path} -> {cfg.video_path}")
+    normalize_video_to_30fps(video_path, cfg.video_path, crf=CRF)
 
     return cfg
 
@@ -180,16 +186,18 @@ def run_preprocess(cfg):
     if not static_cam:  # SLAM을 사용해 camera rotation을 구합니다.
         if not Path(paths.slam).exists():
             if not cfg.use_dpvo:
-                simple_vo = SimpleVO(
-                    cfg.video_path, scale=0.5, step=8, method="sift", f_mm=cfg.f_mm
-                )
+                vo_f_mm = cfg.f_mm if cfg.f_mm is not None else DEFAULT_FOCAL_MM
+                simple_vo = SimpleVO(cfg.video_path, scale=0.5, step=8, method="sift", f_mm=vo_f_mm)
                 vo_results = simple_vo.compute()  # (L, 4, 4), numpy
                 torch.save(vo_results, paths.slam)
             else:  # DPVO 사용
                 from hmr4d.utils.preproc.slam import SLAMModel
 
                 length, width, height = get_video_lwh(cfg.video_path)
-                K_fullimg = estimate_K(width, height)
+                if cfg.f_mm is not None:
+                    K_fullimg = create_camera_sensor(width, height, cfg.f_mm)[2]
+                else:
+                    K_fullimg = estimate_K(width, height)
                 intrinsics = convert_K_to_K4(K_fullimg)
                 slam = SLAMModel(video_path, width, height, intrinsics, buffer=4000, resize=0.5)
                 bar = tqdm(total=length, desc="DPVO")
