@@ -1,0 +1,6 @@
+trial,knee_only_start_s,forceplate_anchored_start_s,cycle_shift_s,marker_source_start_s,anchored_combined_correlation,first_force_frame,last_force_frame,selection_rule
+S18_Walk_1,2.816815242540,3.860787118520,1.043971875980,0.02,0.734117,147,182,next knee-correlation peak whose two measured pulses coincide with visible plate passage
+S18_Walk_2,2.353568340830,3.391039491789,1.037471150959,0.02,0.700234,133,168,next knee-correlation peak whose two measured pulses coincide with visible plate passage
+S18_Walk_3,2.114119032328,3.168443112263,1.054324079935,0.01,0.699900,127,163,next knee-correlation peak whose two measured pulses coincide with visible plate passage
+S18_Walk_4,2.079011807041,3.159991314832,1.080979507791,0.01,0.670355,128,164,next knee-correlation peak whose two measured pulses coincide with visible plate passage
+S18_Walk_5,1.809496754234,2.889514695088,1.080017940854,0.01,0.648925,122,158,next knee-correlation peak whose two measured pulses coincide with visible plate passage
