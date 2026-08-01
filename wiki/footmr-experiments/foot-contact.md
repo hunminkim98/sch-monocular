@@ -1,8 +1,8 @@
 # FootMR foot-contact 시각화 표준
 
-> Sources: FootMR local experiment, 2026-07-31
-> Raw: [FootMR foot-contact 시각화 실험 기록](../../raw/footmr-experiments/foot-contact.md)
-> Updated: 2026-07-31
+> Sources: FootMR local experiment, 2026-07-31; FootMR local pelvis kinematics experiment, 2026-08-01
+> Raw: [FootMR foot-contact 시각화 실험 기록](../../raw/footmr-experiments/foot-contact.md); [FootMR pelvis kinematics, sync, agreement 실험 기록](../../raw/footmr-experiments/2026-08-01-pelvis-kinematics-sync-agreement.md)
+> Updated: 2026-08-01
 
 ## Overview
 
@@ -44,6 +44,12 @@ video_frame  = round((markerless_start_s + marker_source_start_s + force_time_s)
 통과와 두 force pulse가 일치하는지 확인한다. 이 교정은 1.04-1.09 s의
 주기 이동에 해당한다.
 
+별도의 pelvis kinematics 민감도에서는 marker-based GT를 +1 frame (+0.033 s)
+뒤로 옮겼을 때 correlation이 가장 높았다. 이 값은 ASIS midpoint와 OpenSim
+pelvis waveform 사이의 sensitivity correction이며 force-plate passage를 기준으로
+고정한 supplementary visualization sync를 자동 변경하지 않는다. Contact/force
+동기화와 pelvis kinematics 동기화는 서로 다른 검증 대상으로 기록한다.
+
 ## Force 해석
 
 Measured stance는 absolute vertical force가 20.0 N을 넘는 연속 구간에서
@@ -73,3 +79,8 @@ supporting files만 최종 시각화 구현으로 유지한다.
 
 외부 공개 전에는 identifiable video에 대한 participant consent를 반드시
 확인한다.
+
+## See Also
+
+- [FootMR contact 후처리와 OpenSim 검증 경계](contact-postprocess-dynamics-and-opensim-validation.md)
+- [FootMR pelvis kinematics 직접 검증](pelvis-kinematics-validation.md)

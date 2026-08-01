@@ -55,6 +55,25 @@ also run the relevant CLI smoke test and report the video, checkpoint,
 configuration overrides, and produced artifact paths. Validate exporters with
 finite-coordinate, shape, frame-rate, and topology checks.
 
+## Experiment Lifecycle & Cleanup
+
+Production과 직접 관련 없는 일회성 분석 코드, 실험 전용 테스트, 임시 CLI,
+notebook, CSV, plot, render, cache 및 `outputs/` 산출물은 영구 소스가 아니다.
+실험이 진행 중일 때만 유지하고 결론이 확정되면 다음 순서로 정리한다.
+
+1. 실험 질문, 입력과 설정, 핵심 수치, 해석, 한계 및 최종 결정을 LLM wiki에
+   기록한다. 수치 근거와 원본 실험 기록은 `raw/`에 보존하고, 정리된 지식은
+   `wiki/` article과 index/log에 반영한다.
+2. 기록이 완료되면 production과 무관한 실험 코드, 실험만을 위한 테스트,
+   생성 산출물과 cache를 모두 폐기한다. 실험을 위해 production 또는 shared
+   utility에 추가한 hook, option, parameter도 다른 사용처가 없으면 되돌린다.
+3. 삭제 후 repository 전체에서 제거한 module, path, CLI 및 output reference를
+   검색하고, production 회귀 테스트와 wiki evidence/link 검사를 실행한다.
+
+명시적으로 production 기능으로 채택된 코드, production 동작을 보호하는 영구
+regression test, 사용자가 보존을 지정한 publication asset만 예외로 유지한다.
+결론이 wiki/raw에 보존되기 전에는 재현에 필요한 실험 자료를 삭제하지 않는다.
+
 ## Commit & Pull Request Guidelines
 
 History uses short lowercase action summaries such as `updated data download
