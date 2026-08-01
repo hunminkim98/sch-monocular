@@ -26,3 +26,41 @@
 - Updated: FootMR foot-contact 시각화 표준
 
 ## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR pelvis kinematics 직접 검증
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-raw-y-drift-force-impact.md
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR pelvis kinematics 직접 검증
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-contact-linear-grounding-ablation.md
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR pelvis kinematics 직접 검증
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-contact-linear-grounding-production-validation.md
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR pelvis kinematics 직접 검증
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-contact-linear-grounding-gpu-e2e.md
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR pelvis kinematics 직접 검증
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-contact-linear-grounding-visualization.md
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed
+
+## [2026-08-01] ingest | FootMR production 산출물 균형 정리
+- Disposition: Update
+- Raw: raw/footmr-experiments/2026-08-01-production-artifact-cleanup.md
+- Updated: FootMR pelvis kinematics 직접 검증
+- Updated: FootMR foot-contact 시각화 표준
+
+## [2026-08-01] lint | 0 issues found, 0 auto-fixed

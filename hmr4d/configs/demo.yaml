@@ -32,6 +32,7 @@ verbose: False
 use_dpvo: False
 use_sapiens: False
 no_postproc: False
+grounding: none  # none | contact-linear (평지 보행 전용)
 f_mm: null  # focal length of fullframe camera in mm
 
 paths:

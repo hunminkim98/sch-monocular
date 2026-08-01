@@ -195,7 +195,7 @@ def eval_fraction(value: str) -> float:
 def load_trials(sync_path: Path, force_dir: Path) -> list[TrialData]:
     """최종 렌더링 입력을 원본 inference 결과와 measured force에서 직접 읽습니다."""
     sync = contact.load_forceplate_anchored_sync(sync_path)
-    metadata_root = ROOT / "outputs/focal_ablation_5_30fps/metadata"
+    metadata_root = ROOT / "inputs/foot_contact_appendix"
     trials = []
 
     for trial, video_dir_name in METADATA_VIDEO_DIRS.items():

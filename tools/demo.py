@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from hmr4d.configs import register_store_footmr
 from hmr4d.model.footmr.footmr_pl_demo import DemoPL
+from hmr4d.model.footmr.utils.contact_grounding import apply_contact_linear_grounding
 from hmr4d.utils.geo.hmr_cam import (
     convert_K_to_K4,
     create_camera_sensor,
@@ -69,6 +70,12 @@ def parse_args_to_cfg():
         help="35mm-equivalent focal length in mm. When omitted, read verified original-video "
         "metadata and otherwise use the GVHMR default estimate.",
     )
+    parser.add_argument(
+        "--grounding",
+        choices=("none", "contact-linear"),
+        default="none",
+        help="평지 보행용 선택형 grounding입니다. contact-linear는 Raw와 C_Temporal을 사용합니다.",
+    )
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
     args = parser.parse_args()
 
@@ -90,16 +97,18 @@ def parse_args_to_cfg():
     focal_suffix = "default"
     if selected_f_mm is not None:
         focal_suffix = f"{selected_f_mm:g}".replace(".", "p")
+    grounding_suffix = "" if args.grounding == "none" else "_gcontact"
 
     # 설정
     with initialize_config_module(version_base="1.3", config_module="hmr4d.configs"):
         overrides = [
-            f"video_name={video_path.stem}_fps30_f{focal_suffix}",
+            f"video_name={video_path.stem}_fps30_f{focal_suffix}{grounding_suffix}",
             f"static_cam={args.static_cam}",
             f"verbose={args.verbose}",
             f"use_dpvo={args.use_dpvo}",
             f"no_postproc={args.no_postproc}",
             f"use_sapiens={args.use_sapiens}",
+            f"grounding={args.grounding}",
         ]
         if selected_f_mm is not None:
             overrides.append(f"f_mm={selected_f_mm}")
@@ -361,7 +370,37 @@ if __name__ == "__main__":
         model.load_pretrained_model(cfg.ckpt_path)
         model = model.eval().cuda()
         tic = Log.sync_time()
-        pred = model.predict(data, static_cam=cfg.static_cam, no_postproc=cfg.no_postproc)
+        use_contact_grounding = cfg.grounding == "contact-linear"
+        if use_contact_grounding:
+            Log.info("[Grounding] Using Raw motion with C_Temporal contact-linear grounding")
+        pred = model.predict(
+            data,
+            static_cam=cfg.static_cam,
+            no_postproc=cfg.no_postproc or use_contact_grounding,
+        )
+        if use_contact_grounding:
+            boxes_xyxy = torch.load(paths.bbx)["bbx_xyxy"]
+            grounded_global, grounding_report = apply_contact_linear_grounding(
+                pred["smpl_params_global"],
+                pred["smpl_params_incam"],
+                data["kp2d"],
+                boxes_xyxy,
+                model.pipeline.endecoder.smplx_model,
+                fps=30.0,
+            )
+            pred["smpl_params_global"] = grounded_global
+            pred["grounding"] = grounding_report
+            if grounding_report["applied"]:
+                Log.info(
+                    "[Grounding] Applied: "
+                    f"slope={grounding_report['slope_mps']:.6f} m/s, "
+                    f"stances={grounding_report['contact_event_count']}"
+                )
+            else:
+                Log.warning(
+                    "[Grounding] Quality check failed; returning Raw motion: "
+                    f"{grounding_report['fallback_reason']}"
+                )
         pred = detach_to_cpu(pred)
         data_time = data["length"] / 30
         Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")

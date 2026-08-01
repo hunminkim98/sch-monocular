@@ -10,28 +10,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from scipy.signal import savgol_filter
 
-FOOT_KEYPOINTS = {
-    "left": (17, 18, 19),
-    "right": (20, 21, 22),
-}
-VITERBI_STATES = np.asarray(
-    [
-        (0, 0),  # none
-        (1, 0),  # left
-        (0, 1),  # right
-        (1, 1),  # both
-    ],
-    dtype=np.int8,
+from hmr4d.model.footmr.utils.contact_grounding import (
+    FOOT_KEYPOINTS,
+    compute_c_temporal,
+    decode_c_temporal,
 )
 
-# 보관된 C_Temporal 확률에서 기존 state sequence를 정확히 재현하는 고정 penalty입니다.
-VITERBI_CHANGE_PENALTY = 0.15
-VITERBI_NONE_PENALTY = 1.25
-VITERBI_BOTH_PENALTY = 0.05
-VITERBI_TWO_BIT_PENALTY = 1.35
-VITERBI_DIRECT_LEFT_RIGHT_PENALTY = 0.125
 FORCE_THRESHOLD_N = 20.0
 MINIMUM_FORCE_EVENT_SAMPLES = 30
 FORCE_PLATES = (
@@ -108,60 +93,6 @@ def extract_measured_force_events(
     return pd.DataFrame(rows).sort_values("force_start_s").reset_index(drop=True)
 
 
-def _smooth(values: np.ndarray) -> np.ndarray:
-    """짧은 영상에도 안전한 7-frame Savitzky-Golay smoothing을 적용합니다."""
-    if len(values) < 3:
-        return values.copy()
-    window = min(7, len(values) if len(values) % 2 else len(values) - 1)
-    if window < 3:
-        return values.copy()
-    return savgol_filter(values, window, min(2, window - 1), axis=0, mode="interp")
-
-
-def decode_c_temporal(probabilities: np.ndarray) -> np.ndarray:
-    """Left/right contact 확률을 4-state Viterbi sequence로 변환합니다."""
-    probabilities = np.asarray(probabilities, dtype=float)
-    if probabilities.ndim != 2 or probabilities.shape[1] != 2:
-        raise ValueError("probabilities shape은 (frames, 2)여야 합니다")
-    if len(probabilities) == 0:
-        return np.empty((0, 2), dtype=bool)
-
-    probabilities = np.clip(probabilities, 1e-6, 1.0 - 1e-6)
-    emissions = -(
-        VITERBI_STATES[None] * np.log(probabilities[:, None])
-        + (1 - VITERBI_STATES)[None] * np.log(1.0 - probabilities[:, None])
-    ).sum(axis=2)
-    emissions[:, 0] += VITERBI_NONE_PENALTY
-    emissions[:, 3] += VITERBI_BOTH_PENALTY
-
-    transitions = np.zeros((len(VITERBI_STATES), len(VITERBI_STATES)), dtype=float)
-    for source_index, source in enumerate(VITERBI_STATES):
-        for target_index, target in enumerate(VITERBI_STATES):
-            if source_index == target_index:
-                continue
-            hamming_distance = int(np.abs(source - target).sum())
-            penalty = VITERBI_CHANGE_PENALTY
-            if hamming_distance == 2:
-                penalty += VITERBI_TWO_BIT_PENALTY
-            if (source_index, target_index) in ((1, 2), (2, 1)):
-                penalty += VITERBI_DIRECT_LEFT_RIGHT_PENALTY
-            transitions[source_index, target_index] = penalty
-
-    costs = np.full((len(probabilities), len(VITERBI_STATES)), np.inf, dtype=float)
-    backpointers = np.zeros_like(costs, dtype=np.int16)
-    costs[0] = emissions[0]
-    for frame in range(1, len(probabilities)):
-        candidates = costs[frame - 1, :, None] + transitions
-        backpointers[frame] = np.argmin(candidates, axis=0)
-        costs[frame] = np.min(candidates, axis=0) + emissions[frame]
-
-    state_indices = np.empty(len(probabilities), dtype=np.int16)
-    state_indices[-1] = int(np.argmin(costs[-1]))
-    for frame in range(len(probabilities) - 1, 0, -1):
-        state_indices[frame - 1] = backpointers[frame, state_indices[frame]]
-    return VITERBI_STATES[state_indices].astype(bool)
-
-
 def compute_full_video_c_temporal(
     video_dir: Path,
     smplx_model: torch.nn.Module,
@@ -192,46 +123,20 @@ def compute_full_video_c_temporal(
     if keypoints.shape[1:] != (23, 3) or joints.shape[1:] != (23, 3):
         raise ValueError(f"{video_dir.name}: 예상하지 못한 23-keypoint shape")
 
-    smoothed_2d = _smooth(keypoints[..., :2])
-    smoothed_3d = _smooth(joints)
-    bbox_height = np.maximum(boxes[:, 3] - boxes[:, 1], 1.0)
+    contact = compute_c_temporal(keypoints, boxes, joints, fps)
     feature_columns: dict[str, np.ndarray] = {}
-    probabilities = []
+    for side_index, side in enumerate(FOOT_KEYPOINTS):
+        feature_columns[f"speed_2d_body_per_s_{side}"] = contact.speed_2d[:, side_index]
+        feature_columns[f"speed_3d_mps_{side}"] = contact.speed_3d[:, side_index]
+        feature_columns[f"bbox_bottom_gap_body_{side}"] = contact.bottom_gap[:, side_index]
+        feature_columns[f"B_{side}_probability"] = contact.probabilities[:, side_index]
 
-    for side, indices in FOOT_KEYPOINTS.items():
-        ids = list(indices)
-        speed_2d = (
-            np.linalg.norm(np.gradient(smoothed_2d[:, ids], axis=0) * fps, axis=-1).mean(axis=1)
-            / bbox_height
-        )
-        speed_3d = np.linalg.norm(
-            np.gradient(smoothed_3d[:, ids], axis=0) * fps,
-            axis=-1,
-        ).mean(axis=1)
-        bottom_gap = np.maximum(
-            0.0,
-            (boxes[:, 3] - keypoints[:, ids, 1].max(axis=1)) / bbox_height,
-        )
-        raw_score = (
-            0.5 * np.exp(-0.5 * (speed_2d / 0.22) ** 2)
-            + 0.3 * np.exp(-0.5 * (speed_3d / 0.35) ** 2)
-            + 0.2 * np.exp(-0.5 * (bottom_gap / 0.055) ** 2)
-        )
-        probability = 1.0 / (1.0 + np.exp(-7.0 * (raw_score - 0.5)))
-        probabilities.append(probability)
-        feature_columns[f"speed_2d_body_per_s_{side}"] = speed_2d
-        feature_columns[f"speed_3d_mps_{side}"] = speed_3d
-        feature_columns[f"bbox_bottom_gap_body_{side}"] = bottom_gap
-        feature_columns[f"B_{side}_probability"] = probability
-
-    probabilities_array = np.stack(probabilities, axis=1)
-    states = decode_c_temporal(probabilities_array)
     return pd.DataFrame(
         {
             "video_frame": np.arange(len(keypoints), dtype=int),
             "video_time_s": np.arange(len(keypoints), dtype=float) / fps,
-            "C_Temporal_left": states[:, 0],
-            "C_Temporal_right": states[:, 1],
+            "C_Temporal_left": contact.states[:, 0],
+            "C_Temporal_right": contact.states[:, 1],
             **feature_columns,
         }
     )

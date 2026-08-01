@@ -1,7 +1,7 @@
 # FootMR foot-contact 시각화 표준
 
-> Sources: FootMR local experiment, 2026-07-31; FootMR local pelvis kinematics experiment, 2026-08-01
-> Raw: [FootMR foot-contact 시각화 실험 기록](../../raw/footmr-experiments/foot-contact.md); [FootMR pelvis kinematics, sync, agreement 실험 기록](../../raw/footmr-experiments/2026-08-01-pelvis-kinematics-sync-agreement.md)
+> Sources: FootMR local experiment, 2026-07-31; FootMR local pelvis kinematics experiment, 2026-08-01; FootMR local production artifact cleanup audit, 2026-08-01
+> Raw: [FootMR foot-contact 시각화 실험 기록](../../raw/footmr-experiments/foot-contact.md); [FootMR pelvis kinematics, sync, agreement 실험 기록](../../raw/footmr-experiments/2026-08-01-pelvis-kinematics-sync-agreement.md); [FootMR production 산출물 균형 정리 감사 기록](../../raw/footmr-experiments/2026-08-01-production-artifact-cleanup.md)
 > Updated: 2026-08-01
 
 ## Overview
@@ -66,6 +66,10 @@ frames이다. Walk별 clip은 각각 54, 54, 55, 55, 55 frames이다.
 Temporal IoU 0.832, onset MAE 61.1 ms, offset MAE 51.6 ms였다. 다만 이는
 five-trial, one-participant internal pilot이며, 동기화도 hardware-trigger가
 아닌 post-hoc spatial audit이다.
+
+검증이 끝난 뒤 Walk별 clip, QC frame, preview와 CSV/JSON 중간 결과는 제거했다.
+최종 3-panel 통합 영상만 publication asset으로 유지하며, 재렌더링 입력은
+`inputs/foot_contact_appendix/`에 실험 결과와 분리해 보관한다.
 
 ## 유지해야 할 구현
 

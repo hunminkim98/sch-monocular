@@ -8,6 +8,9 @@
 - `appendix.py`: force-plate 구간을 준비하고 최종 appendix 생성
 - `sync.csv`: Walk 1-5의 검증된 동기화 파라미터
 
+재렌더링에 필요한 Walk별 영상, mesh, pose 입력은 실험 결과와 분리해
+`inputs/foot_contact_appendix/`에 보관합니다.
+
 저장소 루트에서 다음과 같이 실행합니다.
 
 ```bash
