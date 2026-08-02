@@ -342,6 +342,14 @@ def get_global_cameras_static(
     return rotation, translation, lights
 
 
+def get_global_render_y_offset(vert_points, grounding_report=None):
+    """Grounded 결과의 Y=0을 보존하고 legacy 결과만 최저점으로 정렬합니다."""
+
+    if isinstance(grounding_report, dict) and grounding_report.get("applied") is True:
+        return torch.zeros((), dtype=vert_points.dtype, device=vert_points.device)
+    return vert_points[..., 1].amin()
+
+
 def get_ground_params_from_points(root_points, vert_points):
     """xz 평면을 지면으로 사용한다.
     Args:

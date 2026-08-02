@@ -36,6 +36,7 @@ from hmr4d.utils.vis.cv2_utils import draw_bbx_xyxy_on_image_batch, draw_coco_sk
 from hmr4d.utils.vis.renderer import (
     Renderer,
     get_global_cameras_static,
+    get_global_render_y_offset,
     get_ground_params_from_points,
 )
 
@@ -76,6 +77,11 @@ def parse_args_to_cfg():
         default="none",
         help="평지 보행용 선택형 grounding입니다. contact-linear는 Raw와 C_Temporal을 사용합니다.",
     )
+    parser.add_argument(
+        "--export-trc",
+        action="store_true",
+        help="저장된 global 결과를 추가 변환 없이 TRC로 내보냅니다.",
+    )
     parser.add_argument("--verbose", action="store_true", help="If true, draw intermediate results")
     args = parser.parse_args()
 
@@ -109,6 +115,7 @@ def parse_args_to_cfg():
             f"no_postproc={args.no_postproc}",
             f"use_sapiens={args.use_sapiens}",
             f"grounding={args.grounding}",
+            f"export_trc={args.export_trc}",
         ]
         if selected_f_mm is not None:
             overrides.append(f"f_mm={selected_f_mm}")
@@ -298,6 +305,9 @@ def render_global(cfg):
 
     debug_cam = False
     pred = torch.load(cfg.paths.hmr4d_results)
+    grounding_report = pred.get("grounding")
+    if isinstance(grounding_report, dict) and grounding_report.get("applied") is True:
+        Log.info("[Render Global] Preserving contact-linear ground at Y=0")
     smplx = make_smplx("supermotion").cuda()
     smplx2smpl = torch.load("hmr4d/utils/body_model/smplx2smpl_sparse.pt").cuda()
     faces_smpl = make_smplx("smpl").faces
@@ -312,7 +322,7 @@ def render_global(cfg):
         # 위치 정렬
         verts = verts.clone()  # (L, V, 3)
         offset = einsum(J_regressor, verts[0], "j v, v i -> j i")[0]  # (3)
-        offset[1] = verts[:, :, [1]].min()
+        offset[1] = get_global_render_y_offset(verts, grounding_report)
         verts = verts - offset
         # 정면 방향 정렬
         T_ay2ayfz = compute_T_ayfz2ay(
@@ -351,6 +361,28 @@ def render_global(cfg):
         img = renderer.render_with_ground(verts_glob[[i]], color[None], cameras, global_lights)
         writer.write_frame(img)
     writer.close()
+
+
+def export_trc_if_requested(cfg):
+    """요청된 경우에만 저장된 production global 결과를 TRC로 내보냅니다."""
+
+    if not cfg.export_trc:
+        return
+
+    from hmr4d.utils.trc_export import export_global_trc
+
+    Log.info("[TRC Export] Start")
+    report = export_global_trc(
+        cfg.paths.hmr4d_results,
+        cfg.video_path,
+        out_dir=cfg.paths.trc_dir,
+        device="cpu",
+    )
+    Log.info(
+        "[TRC Export] Complete: "
+        f"frames={report['frames']}, markers={report['marker_count']}, "
+        f"fps={report['timebase']['fps']:g}, trc={report['artifacts']['trc']}"
+    )
 
 
 if __name__ == "__main__":
@@ -405,6 +437,9 @@ if __name__ == "__main__":
         data_time = data["length"] / 30
         Log.info(f"[HMR4D] Elapsed: {Log.sync_time() - tic:.2f}s for data-length={data_time:.1f}s")
         torch.save(pred, paths.hmr4d_results)
+
+    # ===== 선택형 TRC export ===== #
+    export_trc_if_requested(cfg)
 
     # ===== 결과 rendering ===== #
     render_incam(cfg)
